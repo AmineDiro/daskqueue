@@ -1,0 +1,6 @@
+ipython
+numpy
+black
+dask[complete]
+pytest
+pytest-asyncio

@@ -3,7 +3,6 @@ daskqueue
 
 Take a modern Python codebase to the next level of performance.
 
-[![license](https://img.shields.io/pypi/l/aiomultiprocess.svg)](https://github.com/omnilib/aiomultiprocess/blob/master/LICENSE)
 [![code style](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/ambv/black)
 
 **daskqueue** is small python library built on top of Dask and Dask Distributed that implements a very lightweight Distributed Task queue. 

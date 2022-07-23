@@ -1,0 +1,24 @@
+distributed:
+  comm:
+    retry:
+      count: 100
+      delay:
+        max: 400s
+    timeouts:
+      connect: 5000s # time before connecting fails
+      tcp: 10000s # time before calling an unresponsive connection dead
+
+  worker:
+    multiprocessing-method: spawn
+    use-file-locking: False
+    memory:
+    #   rebalance:
+    #     measure: managed_in_memory
+      spill: false
+      pause: false
+      terminate: false
+  # nanny:
+  #   environ:
+  #     # NOTE: Releases memory back to the OS, check this for more info:
+  #     # https://distributed.dask.org/en/latest/worker.html#memory-not-released-back-to-the-os
+  #     MALLOC_TRIM_THRESHOLD_: 0

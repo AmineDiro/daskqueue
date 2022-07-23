@@ -81,7 +81,7 @@ if __name__ == "__main__":
         queue_pool.put_many(msg)
 ```
 
-> ❗For now the only thing a consummer does is copy files 😄 ! You should change the `Consummer` class
+> ❗For now the only thing a consummer does is copy files 😄 ! You should change the `Consummer._consumme` class method
 
 
 Implementation  

@@ -98,7 +98,7 @@ Performance and Limitations
 -------
 The **daskqueue** library is very well suited for IO bound jobs: by running multiple consummers and queues, communication asynchronously, we can bypass the dask scheduler limit and process **millions of tasks 🥰 !! ** 
 
-The example copy code above was ran on cluster of 20 consummers and 5 queues. The tasks ran are basic file copy between two location (btw two NFS disk). We copied 200 000 files (~ 1.1To) without ever breaking a sweat !
+The example copy code above was ran on cluster of 20 consummers and 5 queues. The tasks ran are basic file copy between two location (copying form NFS filer). We copied 200 000 files (~ 1.1To) without ever breaking a sweat !
 
 We can clearly see the network saturation: 
 

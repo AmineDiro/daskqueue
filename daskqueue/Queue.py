@@ -24,12 +24,7 @@ class QueueActor:
         self.maxsize = maxsize
         self._worker = get_worker()
  
-        # try:
-        #     self.loop = asyncio.get_event_loop()
-        # except RuntimeError:
-        #     self.loop = asyncio.set_event_loop(asyncio.new_event_loop())
-        # self.queue = asyncio.Queue(self.maxsize, loop=self._io_loop)
-
+        # Get the IOLoop running on the worker 
         self.loop = self._io_loop.asyncio_loop
         self.queue = asyncio.Queue(self.maxsize, loop=self.loop)
 

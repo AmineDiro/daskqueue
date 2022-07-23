@@ -38,13 +38,15 @@ class Consumer:
         while True:
             q = await self.pool.get_max_queue()
             item = await q.get_nowait()
-            if isinstance(item, int):
-                self.items.append(item)
-            ## TODO change this to function
+            ################################
+            ### IMPORTANT : CHANGE THIS BLOCK
             if isinstance(item, Tuple):
                 self.items.append(item)
                 src, dst = item
                 shutil.copy(src, dst)
+            else:
+                continue
+            ################################
 
     async def cancel(self):
         print("Canceling consumer ...")

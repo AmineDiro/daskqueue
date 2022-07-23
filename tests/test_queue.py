@@ -2,18 +2,6 @@ import pytest
 from distributed import Client
 from daskqueue import QueuePool, QueueActor
 
-# @pytest.mark.asyncio
-# async def test_get_null_queue():
-#     client = Client(address="tcp://127.0.0.1:42577")
-#     client.restart()
-#     n_queues = 2
-#     queue_pool = client.submit(QueuePool,n_queues, actor=True).result()
-#     # res = queue_pool.get(timeout=1).result()
-#     res = queue_pool.get_nowait().result()
-#     client.restart()
-#     assert None == res
-
-
 class TestQueue:
     value = 0
     client = Client(address="tcp://127.0.0.1:43041")

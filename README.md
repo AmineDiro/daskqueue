@@ -1,8 +1,8 @@
 daskqueue
 ===============
 
-Take a modern Python codebase to the next level of performance.
-
+[![licence](https://img.shields.io/github/license/AmineDiro/daskqueue)](https://github.com/AmineDiro/daskqueue/blob/main/LICENSE.md)
+[![issues](https://img.shields.io/github/issues/AmineDiro/daskqueue)](https://github.com/AmineDiro/daskqueue/issues)
 [![code style](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/ambv/black)
 
 **daskqueue** is small python library built on top of Dask and Dask Distributed that implements a very lightweight Distributed Task queue. 

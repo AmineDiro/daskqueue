@@ -43,7 +43,8 @@ $ pip install .
 Usage
 -----
 
-Take a look at the `examples/` folder. This simple example show how to copy files in parallel using Dask workers and a distributed queue
+
+This simple example show how to copy files in parallel using Dask workers and a distributed queue:
 
 ```python
 from distributed import Client, Queue
@@ -51,6 +52,13 @@ from daskqueue import Consumer, QueuePool
 
 def get_random_msg(start_dir:str,list_files:List[str],size:int)->List[Tuple[str,str]]: 
     pass
+
+class CopyWorker(ConsumerBaseClass):
+    ## You should always implement a concrete `process_item` where you define your processing code. 
+    # Take a look at the Implementation Section
+    def process_item(self,item):
+        src, dst = item
+        shutil.copy(src,dst)
 
 if __name__ == "__main__":
     client = Client(address="scheduler_address")
@@ -64,13 +72,13 @@ if __name__ == "__main__":
     queue_pool = client.submit(QueuePool, n_queues, actor=True).result()
 
     # Start Consummers
-    consummers = []
+    workers = []
     for _ in range(n_consummers):
-        f_consummer = client.submit(Consumer, queue_pool, actor=True)
-        consummer = f_consummer.result()
-        consummers.append(consummer)
-        ## Start each consummer
-        consummer.start()
+        f_consummer = client.submit(CopyWorker, queue_pool, actor=True)
+        worker = f_consummer.result()
+        workers.append(worker)
+        ## Start each Worker
+        worker.start()
 
     # Parallel file copy
     l_files = os.listdir(start_dir)
@@ -81,15 +89,18 @@ if __name__ == "__main__":
         queue_pool.put_many(msg)
 ```
 
-> ❗For now the only thing a consummer does is copy files 😄 ! You should change the `Consummer._consumme` class method
+Take a look at the `examples/` folder to get some usage.
 
 
 Implementation  
 -------
 You should think of daskqueue as a very simple distributed version of aiomultiprocessing. We have three basic classes: 
 - `QueueActor`: Wraps a simple AsyncIO Queue object in a Dask Actor, providing an interface for putting and getting item in a **distributed AND asynchronous** fashion. Each queue runs in a separate Dask Worker and can interface with different actors in the cluster.
-- `QueuePool`: Basic Pool actor, it holds a reference to queues and their sizes. It interfaces with the Client and the Consummers. We implemented very simple load balacing on put and get calls
-- `Consummer`: Should run as a dask actor, it has a `start()` method where we run an async loop to get a queue reference from the QueuePool then directly communicating with the Queue providing highly scalable workflows.
+- `QueuePool`: Basic Pool actor, it holds a reference to queues and their sizes. It interfaces with the Client and the Consummers. The QueuePool implements a simple scheduling on put and get :
+    - On put : arbitrarly  chooses a random queue and puts item into it  then update the queue size reference
+    - On get_max_queue : returns a queue with the highest item count then updates the queue size reference
+
+- `ConsumerBaseClass`: Abstract class interfaces implementing all the fetching logic for you worker. You should build your own workers by inheriting from this class then spawning them in your Dask cluster. The Consumers have a `start()` method where we run an async while True loop to get a queue reference from the QueuePool then directly communicate with the Queue providing highly scalable workflows.
 
 > 🚩 Note : Because each Consummer uses the Worker's event loop, it is recommanded to run a dask cluster with thread_per_core=1. 
 
@@ -106,11 +117,18 @@ We can clearly see the network saturation:
 Looking at the scheduler metrics, we can have a mean of 19.3% 
 ![Image](figures/copy%20async3.PNG)
 
+As for the limitation, given the current implementation, you should be mindfull of the following limitations (this list will be updated regularly): 
+- The workers don't implement a min or max tasks fetched and scheduled on the eventloop, they will continuously fetch an item, process it etc...
+- Long running tasks should be avoided : The processing runs on the Worker’s event loop thread rather than a separate thread. Heavy processing tasks should be avoided (this will change in the future 😉 ) as this will bring your Dask worker's event loop (and subsequently your worker) to a halt.
+- Task that require multiprocessing/multithreading within a worker cannot be scheduled at the time, although this is something we are currently working on implementing
+- The QueuePool implement simple scheduling on put and get. Alternative schedulers may assign jobs to queues using arbitrary criteria, but no other scheduler implementation is available at this time for QueuePool.
 
 TODO
 -------
-- [ ] Consummer should run arbitrary funcs (ala celery)
+- [x] Consumer should run arbitrary funcs (ala celery)
 - [ ] Implement a Distributed Join to know when to stop cluster
+- [ ] Implement a `concurrency_limit` as the maximum number of active, concurrent jobs each worker process will pick up from its queue at once.
+- [ ] Use Worker's thread pool for long running tasks ( probe finished to get results)
 - [ ] Implement the various Queue Exceptions
 - [ ] Wrap consummers in a Consummers class
 - [ ] Bypass Queue mechanism by using zeroMQ ?

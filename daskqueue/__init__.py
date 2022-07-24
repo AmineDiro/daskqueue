@@ -1,4 +1,4 @@
 from .ActorPool import ActorPool
-from .Consummer import Consumer
+from .Consumer import ConsumerBaseClass, Consumer
 from .QueuePool import QueuePool
 from .Queue import QueueActor

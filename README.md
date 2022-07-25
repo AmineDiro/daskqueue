@@ -24,7 +24,7 @@ We used Actors because:
 
 - **NO CENTRAL SCHEDULING NEEDED :** Operations on actors do not inform the central scheduler, and so do not contribute to the 4000 task/second overhead. They also avoid an extra network hop and so have lower latencies. Actors can communicate between themselves in a P2P manner, which makes it pretty neat when having a huge number of queues and consummers.
 
-> **Note** :  Dask provides a [Queue implementation](https://docs.dask.org/en/stable/futures.html?highlight=queue#queues) but they are mediated by the central scheduler, and so they are not ideal for sending large amounts of data (everything you send will be routed through a central point). 
+> **Note** :  Dask provides a [Queue implementation](https://docs.dask.org/en/stable/futures.html?highlight=queue#queues) but they are mediated by the central scheduler, and so they are not ideal for sending large amounts of data (everything you send will be routed through a central point) and add additionnal overhead on the scheduler when trying to put millions of tasks. 
 
 
 Install

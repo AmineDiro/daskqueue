@@ -100,9 +100,7 @@ You should think of daskqueue as a very simple distributed version of aiomultipr
     - On put : arbitrarly  chooses a random queue and puts item into it  then update the queue size reference
     - On get_max_queue : returns a queue with the highest item count then updates the queue size reference
 
-- `ConsumerBaseClass`: Abstract class interfaces implementing all the fetching logic for you worker. You should build your own workers by inheriting from this class then spawning them in your Dask cluster. The Consumers have a `start()` method where we run an async while True loop to get a queue reference from the QueuePool then directly communicate with the Queue providing highly scalable workflows.
-
-> 🚩 Note : Because each Consummer uses the Worker's event loop, it is recommanded to run a dask cluster with thread_per_core=1. 
+- `ConsumerBaseClass`: Abstract class interfaces implementing all the fetching logic for you worker. You should build your own workers by inheriting from this class then spawning them in your Dask cluster. The Consumers have a `start()` method where we run an async while True loop to get a queue reference from the QueuePool then directly communicate with the Queue providing highly scalable workflows. The Consummer will then get an item form the queue and schedule `process_item` on the dask worker's ThreadPoolExecutor, freeing the worker's eventloop to communicate with the scheduler, fetch tasks asynchronously etc .... 
 
 Performance and Limitations
 -------
@@ -119,16 +117,18 @@ Looking at the scheduler metrics, we can have a mean of 19.3%
 
 As for the limitation, given the current implementation, you should be mindfull of the following limitations (this list will be updated regularly): 
 - The workers don't implement a min or max tasks fetched and scheduled on the eventloop, they will continuously fetch an item, process it etc...
-- Long running tasks should be avoided : The processing runs on the Worker’s event loop thread rather than a separate thread. Heavy processing tasks should be avoided (this will change in the future 😉 ) as this will bring your Dask worker's event loop (and subsequently your worker) to a halt.
+- We run the tasks in the workers ThreadPool, we inherit all the limitations that the standard dask.submit method have. 
 - Task that require multiprocessing/multithreading within a worker cannot be scheduled at the time, although this is something we are currently working on implementing
 - The QueuePool implement simple scheduling on put and get. Alternative schedulers may assign jobs to queues using arbitrary criteria, but no other scheduler implementation is available at this time for QueuePool.
 
 TODO
 -------
 - [x] Consumer should run arbitrary funcs (ala celery)
+- [x] Use Worker's thread pool for long running tasks ( probe finished to get results)
+- [ ] Implement reliability : tasks retries, acks mechanisms ... ? 
 - [ ] Implement a Distributed Join to know when to stop cluster
 - [ ] Implement a `concurrency_limit` as the maximum number of active, concurrent jobs each worker process will pick up from its queue at once.
-- [ ] Use Worker's thread pool for long running tasks ( probe finished to get results)
+- [ ] Run the tasks in any WorkerPluging executor specified 
 - [ ] Implement the various Queue Exceptions
 - [ ] Wrap consummers in a Consummers class
 - [ ] Bypass Queue mechanism by using zeroMQ ?

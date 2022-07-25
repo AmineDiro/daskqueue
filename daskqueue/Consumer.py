@@ -1,20 +1,14 @@
 import argparse
 import asyncio
-import os
-import queue
-import random
-import shutil
-import time
-from typing import List, Tuple
-import uuid
-from concurrent.futures import ProcessPoolExecutor
-
-import numpy as np
-from abc import ABC, abstractmethod
-
-from distributed import Client, get_worker
-
 import logging
+import uuid
+from abc import ABC, abstractmethod
+from concurrent.futures import ProcessPoolExecutor
+from typing import Any, List, Tuple
+
+from distributed import get_worker
+
+from .QueuePool import QueuePool
 
 logging.basicConfig(
     level=logging.INFO,
@@ -24,7 +18,8 @@ logging.basicConfig(
 
 
 class ConsumerBaseClass(ABC):
-    def __init__(self, pool) -> None:
+    def __init__(self, pool: QueuePool) -> None:
+        self.id = str(uuid.uuid4())
         self.pool = pool
         self.future = None
         self.items = []
@@ -35,14 +30,14 @@ class ConsumerBaseClass(ABC):
     async def len_items(self) -> int:
         return len(self.items)
 
-    async def get_items(self):
+    async def get_items(self) -> List[Any]:
         return self.items
 
-    async def start(self):
+    async def start(self) -> None:
         """Starts the consumming loop, runs on Dask Worker's Tornado event loop."""
         self.fetch_loop = asyncio.create_task(self._consume())
 
-    async def _consume(self):
+    async def _consume(self) -> None:
         """Runs an async loop to fetch item from a queue determined by the QueuePool and processes it in place"""
         loop = asyncio.get_event_loop()
         while True:
@@ -53,25 +48,23 @@ class ConsumerBaseClass(ABC):
             future = asyncio.ensure_future(
                 loop.run_in_executor(self._executor, self.process_item, item),
             )
-
             self.tasks.append(future)
 
             if item is None:
                 break
 
-    async def cancel(self):
+    async def cancel(self) -> None:
         """Cancels the running _consume task"""
-
-        logging.info("Canceling consumer ...")
+        logging.info(f"[Consumer {self.id}]:  Canceling consumer ...")
         self.fetch_loop.cancel()
+        [t.cancel() for t in self.tasks ]
 
     @abstractmethod
-    def process_item(self, item):
+    def process_item(self, item: Any):
         """Process items from the queue."""
         raise NotImplementedError
 
 
 class DummyConsumer(ConsumerBaseClass):
     def process_item(self, item):
-        logging.info(f"Processing {item}")
-
+        logging.info(f"[Consumer {self.id}]: Processing {item}")

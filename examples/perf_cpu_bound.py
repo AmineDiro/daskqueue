@@ -1,6 +1,4 @@
-import queue
 import time
-import pytest
 from distributed import Client, LocalCluster, Actor
 from daskqueue import QueuePool, ConsumerBaseClass
 import logging
@@ -14,7 +12,7 @@ logging.basicConfig(
 
 class CPUConsumer(ConsumerBaseClass):
     def process_item(self, item):
-        logging.info(f"Processing {item}")
+        logging.info(f"[Consumer {self.id}]: Processing {item}")
         return sum(i * i for i in range(10**8))
 
 
@@ -25,7 +23,7 @@ if __name__ == "__main__":
 
     queue_pool = client.submit(QueuePool, 1, actor=True).result()
 
-    n_consumers = 5
+    n_consumers = 2
     consumers = [
         client.submit(CPUConsumer, queue_pool, actor=True).result() for _ in range(5)
     ]
@@ -33,7 +31,6 @@ if __name__ == "__main__":
     [c.start() for c in consumers]
 
     for i in range(10):
-        queue_pool.put_many(list(range(10)))
+        queue_pool.put_many(list(range(100)))
 
-    queue_pool.put_many([1, 24, 423, 234252, None, 323, 234524, 234234])
-#
+

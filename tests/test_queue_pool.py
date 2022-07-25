@@ -13,22 +13,31 @@ from daskqueue import QueuePool
 #     client.restart()
 #     assert None == res
 
-client = Client(address="tcp://127.0.0.1:42577")
 
-
-def test_getnowait_from_empty_queue():
+class TestQueuePool:
+    client = Client()
     client.restart()
-    n_queues = 2
-    queue_pool = client.submit(QueuePool, n_queues, actor=True).result()
-    # res = queue_pool.get(timeout=1).result()
-    res = queue_pool.get_nowait().result()
-    assert None == res
 
+    def test_getnowait_from_empty_queue(self):
+        n_queues = 2
+        queue_pool = self.client.submit(QueuePool, n_queues, actor=True).result()
+        res = queue_pool.get_nowait().result()
+        assert None == res
 
-def test_get_from_empty_queue():
-    client.restart()
-    n_queues = 2
-    queue_pool = client.submit(QueuePool, n_queues, actor=True).result()
-    # res = queue_pool.get(timeout=1).result()
-    res = queue_pool.get(timeout=1).result()
-    assert None == res
+    def test_get_from_empty_queue(self):
+        n_queues = 2
+        queue_pool = self.client.submit(QueuePool, n_queues, actor=True).result()
+        res = queue_pool.get(timeout=1).result()
+        assert None == res
+
+    def test_put_queuepool(self):
+        n_queues = 2
+        queue_pool = self.client.submit(QueuePool, n_queues, actor=True).result()
+        res = queue_pool.put(12).result()
+        assert None == res
+
+    def test_putmany_queuepool(self):
+        n_queues = 2
+        queue_pool = self.client.submit(QueuePool, n_queues, actor=True).result()
+        res = queue_pool.put_many([12,'skdfjs',1213]).result()
+        assert None == res

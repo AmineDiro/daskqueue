@@ -7,7 +7,7 @@ cfgv==3.3.1
 click==8.0.4
 cloudpickle==2.1.0
 dask==2022.7.1
--e git+ssh://git@github.com/AmineDiro/daskqueue.git@c2c264aa0aa6a49793ab1260fc81215c6da3edc4#egg=daskqueue
+# -e git+ssh://git@github.com/AmineDiro/daskqueue.git@c2c264aa0aa6a49793ab1260fc81215c6da3edc4#egg=daskqueue
 decorator==5.1.1
 distlib==0.3.5
 distributed==2022.7.1

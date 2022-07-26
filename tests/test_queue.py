@@ -2,40 +2,57 @@ import pytest
 from distributed import Client
 from daskqueue import QueuePool, QueueActor
 
+from distributed.utils_test import gen_cluster
 
-class TestQueue:
-    value = 0
-    client = Client(address="tcp://127.0.0.1:43041")
-    client.restart()
 
-    def test_create_queue(self):
-        queue = self.client.submit(QueueActor, actor=True).result()
-        assert 1 == 1
+@gen_cluster(client=True, cluster_dump_directory=False)
+async def test_create_queue(c, s, a, b):
+    queue = await c.submit(QueueActor, actor=True)
+    assert hasattr(queue, "qsize")
+    assert hasattr(queue, "empty")
+    assert hasattr(queue, "full")
+    assert hasattr(queue, "put_many")
+    assert hasattr(queue, "put")
+    assert hasattr(queue, "put_nowait")
+    assert hasattr(queue, "put_nowait_batch")
+    assert hasattr(queue, "get")
+    assert hasattr(queue, "get_nowait")
+    assert hasattr(queue, "get_nowait_batch")
 
-    def test_getnowait_from_empty_queue(self):
-        queue = self.client.submit(QueueActor, actor=True).result()
-        # res = queue_pool.get(timeout=1).result()
-        res = queue.get_nowait().result()
-        assert None == res
 
-    def test_get_from_empty_queue(self):
-        queue = self.client.submit(QueueActor, actor=True).result()
-        res = queue.get(timeout=1).result()
-        assert res == None
+@gen_cluster(client=True, cluster_dump_directory=False)
+async def test_getnowait_from_empty_queue(c, s, a, b):
+    queue = await c.submit(QueueActor, actor=True)
+    res = await queue.get_nowait()
+    assert None == res
 
-    def test_put_in_queue(self):
-        queue = self.client.submit(QueueActor, actor=True).result()
-        res = queue.put(1).result()
-        assert res == None
 
-    def test_put_get_in_queue(self):
-        queue = self.client.submit(QueueActor, actor=True).result()
-        res_put = queue.put(1).result()
-        res_get = queue.get(timeout=1).result()
-        assert res_get == 1
+@gen_cluster(client=True, cluster_dump_directory=False)
+async def test_get_from_empty_queue(c, s, a, b):
+    queue = await c.submit(QueueActor, actor=True)
+    res = await queue.get(timeout=1)
+    assert res == None
 
-    def test_put_getnowait_in_queue(self):
-        queue = self.client.submit(QueueActor, actor=True).result()
-        res_put = queue.put(1).result()
-        res_get = queue.get_nowait().result()
-        assert res_get == 1
+
+@gen_cluster(client=True, cluster_dump_directory=False)
+async def test_put_in_queue(c, s, a, b):
+    queue = await c.submit(QueueActor, actor=True)
+    res = await queue.put(1)
+    assert res == None
+    assert await queue.qsize() == 1
+
+
+@gen_cluster(client=True, cluster_dump_directory=False)
+async def test_put_get_in_queue(c, s, a, b):
+    queue = await c.submit(QueueActor, actor=True)
+    await queue.put(1)
+    res_get = await queue.get(timeout=1)
+    assert res_get == 1
+
+
+@gen_cluster(client=True, cluster_dump_directory=False)
+async def test_put_getnowait_in_queue(c, s, a, b):
+    queue = await c.submit(QueueActor, actor=True)
+    await queue.put(1)
+    res_get = await queue.get_nowait()
+    assert res_get == 1

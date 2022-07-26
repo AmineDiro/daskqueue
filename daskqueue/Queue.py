@@ -14,10 +14,6 @@ class Full(Exception):
     pass
 
 
-def run_and_get(coro):
-    task = asyncio.create_task(coro)
-
-
 class QueueActor:
     def __init__(self, maxsize=-1):
         # If maxsize is less than or equal to zero, the queue size is infinite

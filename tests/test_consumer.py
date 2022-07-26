@@ -36,6 +36,7 @@ def test_create_consumer_concrete():
     pool = "test"
     with pytest.raises(Exception) as e_info:
         worker = Worker(pool)
+        print(f"{e_info}")
 
 
 @gen_cluster(client=True, cluster_dump_directory=False)

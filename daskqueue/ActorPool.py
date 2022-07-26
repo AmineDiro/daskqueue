@@ -92,7 +92,7 @@ class ActorPool:
                 future = fn(actor, value)
             else:
                 future = fn(actor)
-            future_key = tuple(future) if isinstance(future, list) else future
+            self.future_key = tuple(future) if isinstance(future, list) else future
             self._future_to_actor[self._future_key] = (self._next_task_index, actor)
             self._future_key += 1
             self._index_to_future[self._next_task_index] = future

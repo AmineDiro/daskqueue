@@ -23,8 +23,8 @@ class QueueActor:
         # If maxsize is less than or equal to zero, the queue size is infinite
         self.maxsize = maxsize
         self._worker = get_worker()
- 
-        # Get the IOLoop running on the worker 
+
+        # Get the IOLoop running on the worker
         self.loop = self._io_loop.asyncio_loop
         self.queue = asyncio.Queue(self.maxsize, loop=self.loop)
 
@@ -58,7 +58,7 @@ class QueueActor:
     async def get(self, timeout=None):
         try:
             return await asyncio.wait_for(
-                self.queue.get(), timeout=timeout, loop = self.loop
+                self.queue.get(), timeout=timeout, loop=self.loop
             )
         except asyncio.TimeoutError:
             return None

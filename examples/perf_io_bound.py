@@ -12,13 +12,15 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 
+
 class IOConsumer(ConsumerBaseClass):
-    def process_item(self,item):
+    def process_item(self, item):
         # File operations (such as logging) can block the
         # event loop: run them in a thread pool.
         logging.info(f"Processing {item}")
-        with open('/dev/urandom', 'rb') as f:
+        with open("/dev/urandom", "rb") as f:
             return f.read(100)
+
 
 if __name__ == "__main__":
     client = Client(address="tcp://127.0.0.1:39581")

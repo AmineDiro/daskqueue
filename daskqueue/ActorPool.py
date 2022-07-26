@@ -5,6 +5,7 @@ from distributed import wait
 import asyncio
 from .Queue import QueueActor
 
+
 class ActorPool:
     """Utility class to operate on a fixed pool of actors.
 
@@ -12,7 +13,7 @@ class ActorPool:
         actors (list): List of DaskActors to use in this pool.
     """
 
-    def __init__(self, actors:List[QueueActor]):
+    def __init__(self, actors: List[QueueActor]):
         # actors to be used
         self._idle_actors = list(actors)
 
@@ -33,7 +34,7 @@ class ActorPool:
         # next work depending when actors free
         self._pending_submits = []
 
-    def map(self, fn: Callable, values: Any=None):
+    def map(self, fn: Callable, values: Any = None):
         """Apply the given function in parallel over the actors and values.
 
         This returns an ordered iterator that will return results of the map

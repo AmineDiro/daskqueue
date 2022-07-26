@@ -22,6 +22,7 @@ def get_random_msg(
         msg.append((src, dst))
     return msg
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="")
     parser.add_argument(
@@ -35,11 +36,11 @@ if __name__ == "__main__":
 
     start_dir = ""
     dst_dir = ""
-    n_queues = 5 # +1 queue pool thread
-    n_consummers = 20 
+    n_queues = 5  # +1 queue pool thread
+    n_consummers = 20
 
     # Queue Pool  with basic load balancing
-    queue_pool = client.submit(QueuePool,n_queues, actor=True).result()
+    queue_pool = client.submit(QueuePool, n_queues, actor=True).result()
 
     # Consummers
     consummers = []
@@ -52,6 +53,5 @@ if __name__ == "__main__":
     # Parallel file copy
     l_files = os.listdir(start_dir)
     for _ in range(10):
-        msg = get_random_msg(start_dir,l_files,size=1000)
+        msg = get_random_msg(start_dir, l_files, size=1000)
         queue_pool.put_many(msg)
-

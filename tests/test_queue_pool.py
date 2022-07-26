@@ -39,5 +39,5 @@ class TestQueuePool:
     def test_putmany_queuepool(self):
         n_queues = 2
         queue_pool = self.client.submit(QueuePool, n_queues, actor=True).result()
-        res = queue_pool.put_many([12,'skdfjs',1213]).result()
+        res = queue_pool.put_many([12, "skdfjs", 1213]).result()
         assert None == res

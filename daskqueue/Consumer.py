@@ -33,6 +33,9 @@ class ConsumerBaseClass(ABC):
     async def get_items(self) -> List[Any]:
         return self.items
 
+    async def consume_status(self) -> List[Any]:
+        return self.fetch_loop.cancelled()
+
     async def start(self) -> None:
         """Starts the consumming loop, runs on Dask Worker's Tornado event loop."""
         self.fetch_loop = asyncio.create_task(self._consume())
@@ -57,7 +60,7 @@ class ConsumerBaseClass(ABC):
         """Cancels the running _consume task"""
         logging.info(f"[Consumer {self.id}]:  Canceling consumer ...")
         self.fetch_loop.cancel()
-        [t.cancel() for t in self.tasks ]
+        [t.cancel() for t in self.tasks]
 
     @abstractmethod
     def process_item(self, item: Any):

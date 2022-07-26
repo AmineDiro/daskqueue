@@ -1,10 +1,13 @@
-import time 
-import pytest
-from distributed import Client, LocalCluster, Actor
-from daskqueue import QueuePool,  ConsumerBaseClass
+import asyncio
 import logging
+from re import I
+import time
 
+import pytest
+from daskqueue import ConsumerBaseClass, QueuePool
 from daskqueue.Consumer import DummyConsumer
+from distributed import Actor, Client, LocalCluster
+from distributed.utils_test import gen_cluster
 
 logging.basicConfig(
     level=logging.INFO,
@@ -13,35 +16,46 @@ logging.basicConfig(
 )
 
 
-    
-class TestConsummer:
-    client = Client()
-    client.restart()
-    time.sleep(2)
-
-    queue_pool = client.submit(QueuePool,1, actor=True).result()
- 
-
-    def test_create_concrete_process(self):
-        class Worker(ConsumerBaseClass):
-            pass 
-        pool = 'test'
-        with pytest.raises(Exception) as e_info:
-            worker = Worker(pool)
-
-    def test_consummer_get_item(self):
-        self.queue_pool.put(1)
-        consumer = self.client.submit(DummyConsumer, self.queue_pool, actor=True).result()
-        consumer.start()
-        # assert consumer.len_items().result() == 0
-        time.sleep(2)
-        res = consumer.get_items().result()[0]
-        assert 1 == res
+@gen_cluster(cluster_dump_directory=False)
+async def test_async_consumer_create(s, a, b):
+    async with Client(s.address, asynchronous=True) as c:
+        worker = c.submit(DummyConsumer, "test", workers=[a.address], actor=True)
+        worker = await worker
+        assert hasattr(worker, "get_items")
+        assert hasattr(worker, "len_items")
+        assert hasattr(worker, "start")
+        assert hasattr(worker, "_consume")
+        assert hasattr(worker, "cancel")
+        assert hasattr(worker, "consume_status")
 
 
-    # def test_cancel_consumer(self):
-    #     consumer = self.client.submit(DummyConsumer, self.queue_pool, actor=True).result()
-    #     consumer.start()
-    #     consumer.cancel()
+def test_create_consumer_concrete():
+    class Worker(ConsumerBaseClass):
+        pass
+
+    pool = "test"
+    with pytest.raises(Exception) as e_info:
+        worker = Worker(pool)
 
 
+@gen_cluster(client=True, cluster_dump_directory=False)
+async def test_consummer_get_item(c, s, a, b):
+    async with Client(s.address, asynchronous=True) as c:
+        queue_pool = await c.submit(QueuePool, 1, actor=True)
+        await queue_pool.put(1)
+        consumer = await c.submit(DummyConsumer, queue_pool, actor=True)
+        await consumer.start()
+        res = await consumer.get_items()
+        assert 1 == res[0]
+
+
+@gen_cluster(client=True, cluster_dump_directory=False)
+async def test_consummer_get_item(c, s, a, b):
+    async with Client(s.address, asynchronous=True) as c:
+        queue_pool = await c.submit(QueuePool, 1, actor=True)
+        await queue_pool.put(1)
+        consumer = await c.submit(DummyConsumer, queue_pool, actor=True)
+        await consumer.start()
+        assert await consumer.consume_status() == False
+        await consumer.cancel()
+        assert await consumer.consume_status() == True

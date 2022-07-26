@@ -29,7 +29,7 @@ class QueuePool:
         idx = np.random.randint(len(self._queues))
         return self._queues[idx]
 
-    async def get_max_queue(self)-> QueueActor:
+    async def get_max_queue(self) -> QueueActor:
         key_queue = max(zip(self._queue_size.values(), self._queue_size.keys()))[1]
         self._queue_size[key_queue] -= 1
         return self._index_queue[key_queue]

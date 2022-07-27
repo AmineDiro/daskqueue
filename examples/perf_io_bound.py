@@ -25,6 +25,7 @@ if __name__ == "__main__":
 
     queue_pool = client.submit(QueuePool, 1, actor=True).result()
 
+    ## DEBUG
     q = queue_pool.get_max_queue().result()
 
     n_consumers = 5

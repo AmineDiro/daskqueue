@@ -63,30 +63,28 @@ class CopyWorker(ConsumerBaseClass):
 if __name__ == "__main__":
     client = Client(address="scheduler_address")
 
+    # Params
     n_queues = 5
     n_consummers = 20
     start_dir = ""
     dst_dir= ""
 
-    # Queue Pool  with basic load balancing
+    # Create a distributed queue on the cluster
     queue_pool = client.submit(QueuePool, n_queues, actor=True).result()
 
-    # Start Consummers
-    workers = []
-    for _ in range(n_consummers):
-        f_consummer = client.submit(CopyWorker, queue_pool, actor=True)
-        worker = f_consummer.result()
-        workers.append(worker)
-        ## Start each Worker
-        worker.start()
+    # Start Consummer Pool
+    consumer_pool = ConsumerPool(client, CopyWorker, n_consumers, queue_pool)
+    consumer_pool.start()
 
     # Parallel file copy
     l_files = os.listdir(start_dir)
 
+    ## Put work item on the queue
     for _ in range(100):
-        ## We chunk the files into
         msg = get_random_msg(start_dir,l_files,size=1000)
         queue_pool.put_many(msg)
+
+    consumer_pool.join()
 ```
 
 Take a look at the `examples/` folder to get some usage.

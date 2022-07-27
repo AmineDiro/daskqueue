@@ -7,14 +7,9 @@ from concurrent.futures import ProcessPoolExecutor
 from typing import Any, List, Tuple
 
 from distributed import get_worker
+from daskqueue.utils import logger
 
 from .QueuePool import QueuePool
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s,%(msecs)d %(levelname)s: %(message)s",
-    datefmt="%H:%M:%S",
-)
 
 
 class ConsumerBaseClass(ABC):
@@ -33,20 +28,24 @@ class ConsumerBaseClass(ABC):
     async def get_items(self) -> List[Any]:
         return self.items
 
-    async def consume_status(self) -> List[Any]:
+    async def done(self) -> bool:
+        return self.fetch_loop.done()
+
+    async def consume_status(self) -> bool:
         return self.fetch_loop.cancelled()
 
     async def start(self) -> None:
         """Starts the consumming loop, runs on Dask Worker's Tornado event loop."""
         self.fetch_loop = asyncio.create_task(self._consume())
 
-    async def _consume(self) -> None:
+    async def _consume(self, timeout: int = 1) -> None:
         """Runs an async loop to fetch item from a queue determined by the QueuePool and processes it in place"""
         loop = asyncio.get_event_loop()
         while True:
             q = await self.pool.get_max_queue()
-            item = await q.get()
+            item = await q.get(timeout=timeout)
             if item:
+                logger.debug(f"[Consumer {self.id}]: Processing {item}")
                 self.items.append(item)
             future = asyncio.ensure_future(
                 loop.run_in_executor(self._executor, self.process_item, item),
@@ -58,7 +57,7 @@ class ConsumerBaseClass(ABC):
 
     async def cancel(self) -> None:
         """Cancels the running _consume task"""
-        logging.info(f"[Consumer {self.id}]:  Canceling consumer ...")
+        logger.debug(f"[Consumer {self.id}]:  Canceling consumer ...")
         self.fetch_loop.cancel()
         [t.cancel() for t in self.tasks]
 
@@ -70,4 +69,4 @@ class ConsumerBaseClass(ABC):
 
 class DummyConsumer(ConsumerBaseClass):
     def process_item(self, item):
-        logging.info(f"[Consumer {self.id}]: Processing {item}")
+        logger.info(f"[Consumer {self.id}]: Processing {item}")

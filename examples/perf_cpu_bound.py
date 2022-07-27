@@ -1,34 +1,33 @@
 import time
+import os
 from distributed import Client, LocalCluster, Actor
-from daskqueue import QueuePool, ConsumerBaseClass
-import logging
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s,%(msecs)d %(levelname)s: %(message)s",
-    datefmt="%H:%M:%S",
-)
+from daskqueue import QueuePool, ConsumerBaseClass, ConsumerPool
+from daskqueue.utils import logger
 
 
 class CPUConsumer(ConsumerBaseClass):
     def process_item(self, item):
-        logging.info(f"[Consumer {self.id}]: Processing {item}")
         return sum(i * i for i in range(10**8))
 
 
 if __name__ == "__main__":
-    client = Client(address="tcp://127.0.0.1:39581")
-    client.restart()
-    time.sleep(2)
+    client = Client(
+        n_workers=3,
+        threads_per_worker=1,
+        worker_dashboard_address=":8787",
+        direct_to_workers=True,
+    )
 
     queue_pool = client.submit(QueuePool, 1, actor=True).result()
+    dashboard_port = client.dashboard_link.split(":")[-1]
 
+    logger.info(f" Dashboard link : http://192.168.1.92:{dashboard_port}")
     n_consumers = 2
-    consumers = [
-        client.submit(CPUConsumer, queue_pool, actor=True).result() for _ in range(5)
-    ]
 
-    [c.start() for c in consumers]
+    consumer_pool = ConsumerPool(client, CPUConsumer, n_consumers, queue_pool)
+    consumer_pool.start()
 
     for i in range(10):
-        queue_pool.put_many(list(range(100)))
+        queue_pool.put_many(list(range(10)))
+
+    consumer_pool.join()

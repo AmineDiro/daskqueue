@@ -21,7 +21,7 @@ if __name__ == "__main__":
     queue_pool = client.submit(QueuePool, 1, actor=True).result()
     dashboard_port = client.dashboard_link.split(":")[-1]
 
-    logger.info(f" Dashboard link : http://192.168.1.92:{dashboard_port}")
+    logger.info(f" Dashboard link : http://IP:{dashboard_port}")
     n_consumers = 2
 
     consumer_pool = ConsumerPool(client, CPUConsumer, n_consumers, queue_pool)

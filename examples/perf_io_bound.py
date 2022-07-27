@@ -2,7 +2,7 @@ import queue
 import time
 import pytest
 from distributed import Client, LocalCluster, Actor
-from daskqueue import QueuePool, ConsumerBaseClass
+from daskqueue import QueuePool, ConsumerBaseClass, ConsumerPool
 import logging
 
 
@@ -15,26 +15,23 @@ logging.basicConfig(
 
 class IOConsumer(ConsumerBaseClass):
     def process_item(self, item):
-        # File operations (such as logging) can block the
-        # event loop: run them in a thread pool.
-        logging.info(f"Processing {item}")
+        logging.info(f"[{self.id}] : Processing {item}")
         with open("/dev/urandom", "rb") as f:
             return f.read(100)
 
 
 if __name__ == "__main__":
-    client = Client(address="tcp://127.0.0.1:39581")
-    client.restart()
-    time.sleep(2)
+    client = Client(n_workers=3, threads_per_worker=1)
 
     queue_pool = client.submit(QueuePool, 1, actor=True).result()
 
-    n_consumers = 5
-    consumers = [
-        client.submit(IOConsumer, queue_pool, actor=True).result() for _ in range(5)
-    ]
+    q = queue_pool.get_max_queue().result()
 
-    [c.start() for c in consumers]
+    n_consumers = 5
+    consumer_pool = ConsumerPool(client, IOConsumer, n_consumers, queue_pool)
+    consumer_pool.start()
 
     for i in range(10):
-        queue_pool.put_many(list(range(1000)))
+        queue_pool.put_many(list(range(10)))
+
+    consumer_pool.join()

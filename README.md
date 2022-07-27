@@ -34,9 +34,7 @@ daskqueue requires Python 3.6 or newer.
 You can install manually by cloning the repository:
 
 ```bash
-$ git clone https://github.com/AmineDiro/daskqueue.git
-$ cd daskqueue/
-$ pip install .
+$ pip install daskqueue
 ```
 
 

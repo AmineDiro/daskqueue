@@ -47,7 +47,7 @@ class ConsumerBaseClass(ABC):
             if item:
                 logger.debug(f"[Consumer {self.id}]: Processing {item}")
                 self.items.append(item)
-            future = asyncio.ensure_future(
+            future = await asyncio.ensure_future(
                 loop.run_in_executor(self._executor, self.process_item, item),
             )
             self.tasks.append(future)

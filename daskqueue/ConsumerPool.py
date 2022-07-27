@@ -33,6 +33,10 @@ class ConsumerPool:
         logger.info(f"Starting {self.n_consumers} consumers")
         [c.start() for c in self.consumers]
 
+    def nb_consumed(self) -> None:
+        """Return the number of items consumed by our ConsumerPool"""
+        return sum([c.len_items().result() for c in self.consumers])
+
     def join(self, timestep: int = 2) -> None:
         """Join ConsumerPool will wait until all consumer are done processing items.
         Basically have processed all the elements of the queue_pool.

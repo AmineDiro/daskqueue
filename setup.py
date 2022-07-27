@@ -8,14 +8,9 @@ this_directory = path.abspath(path.dirname(__file__))
 
 description = "daskqueue distributed queue package"
 
-# try:
-#     import pypandoc
-
-#     long_description = pypandoc.convert_file("README.md", "rst")
-# except (IOError, ImportError):
 long_description = open("README.md").read()
 
-version = "0.1.2"
+version = "0.1.3"
 
 setup(
     name="daskqueue",

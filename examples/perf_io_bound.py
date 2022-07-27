@@ -3,19 +3,13 @@ import time
 import pytest
 from distributed import Client, LocalCluster, Actor
 from daskqueue import QueuePool, ConsumerBaseClass, ConsumerPool
-import logging
 
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s,%(msecs)d %(levelname)s: %(message)s",
-    datefmt="%H:%M:%S",
-)
+from daskqueue.utils import logger
 
 
 class IOConsumer(ConsumerBaseClass):
     def process_item(self, item):
-        logging.info(f"[{self.id}] : Processing {item}")
+        logger.debug(f"[{self.id}] : Processing {item}")
         with open("/dev/urandom", "rb") as f:
             return f.read(100)
 

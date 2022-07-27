@@ -1,4 +1,5 @@
-from distutils.core import setup
+from setuptools import find_packages, setup
+
 from os import path
 import os
 
@@ -14,20 +15,25 @@ description = "daskqueue distributed queue package"
 # except (IOError, ImportError):
 long_description = open("README.md").read()
 
-version = "0.1.1"
+version = "0.1.2"
 
 setup(
     name="daskqueue",
-    packages=["daskqueue"],
+    packages=find_packages(exclude=["*tests*"]),
     version=version,
     license="MIT",
     description=description,
+    project_urls={
+        "Source": "https://github.com/AmineDiro/daskqueue/",
+    },
+    author="Amine Dirhoussi",
+    maintainer_email="aminedirhoussi1@gmail.com",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    author="Amine Dirhoussi",
     keywords=["Distributed Task Queue"],
     install_requires=["numpy", "dask>=2022.7.1", "distributed>=2022.7.1"],
     python_requires=">3.6",
+    include_package_data=True,
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",

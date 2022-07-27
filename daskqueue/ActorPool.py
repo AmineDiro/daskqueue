@@ -1,3 +1,9 @@
+"""THis class is heavily inspired from the Ray's ActorPool.
+ It tries to mirror how ray reimplements the map interface to loadbalance across Actors.
+
+NOTE : Under heavy development !
+"""
+
 from typing import Any, Callable, List
 from distributed import wait
 

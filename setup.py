@@ -7,7 +7,12 @@ this_directory = path.abspath(path.dirname(__file__))
 
 description = "daskqueue distributed queue package"
 
-long_description = description
+try:
+    import pypandoc
+
+    long_description = pypandoc.convert_file("README.md", "rst")
+except (IOError, ImportError):
+    long_description = open("README.md").read()
 
 version = "0.1.0"
 
@@ -21,7 +26,7 @@ setup(
     long_description_content_type="text/x-rst",
     author="Amine Dirhoussi",
     keywords=["Distributed Task Queue"],
-    install_requires=["numpy", "dask", "distributed"],
+    install_requires=["numpy", "dask>=2022.7.1", "distributed>=2022.7.1"],
     python_requires=">3.6",
     classifiers=[
         "Development Status :: 3 - Alpha",

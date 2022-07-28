@@ -1,5 +1,6 @@
 from .ActorPool import ActorPool
-from .Consumer import ConsumerBaseClass, DummyConsumer
-from .Queue import QueueActor
-from .QueuePool import QueuePool
-from .ConsumerPool import ConsumerPool
+from .Consumer import *
+from .Queue import *
+from .QueuePool import *
+from .ConsumerPool import *
+from .Protocol import *

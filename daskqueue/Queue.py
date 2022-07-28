@@ -18,11 +18,13 @@ class QueueActor:
     def __init__(self, maxsize=-1):
         # If maxsize is less than or equal to zero, the queue size is infinite
         self.maxsize = maxsize
-        self._worker = get_worker()
-
         # Get the IOLoop running on the worker
         self.loop = self._io_loop.asyncio_loop
         self.queue = asyncio.Queue(self.maxsize, loop=self.loop)
+
+    @property
+    def _worker(self):
+        return get_worker()
 
     @property
     def _io_loop(self):

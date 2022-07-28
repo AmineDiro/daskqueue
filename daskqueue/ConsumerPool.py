@@ -3,7 +3,7 @@ from typing import TypeVar
 
 from distributed import Actor, Client, LocalCluster
 
-from daskqueue import ConsumerBaseClass, QueuePool
+from daskqueue import ConsumerBaseClass, QueuePool, GeneralConsumer
 from daskqueue.utils import logger
 
 TConsumer = TypeVar("TConsumer", bound=ConsumerBaseClass)
@@ -13,9 +13,9 @@ class ConsumerPool:
     def __init__(
         self,
         client: Client,
-        ConsumerClass: TConsumer,
-        n_consumers: int,
         queue_pool: QueuePool,
+        ConsumerClass: TConsumer = GeneralConsumer,
+        n_consumers: int = 1,
     ) -> None:
         if not issubclass(ConsumerClass, ConsumerBaseClass):
             raise Exception(

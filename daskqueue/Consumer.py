@@ -3,12 +3,15 @@ import asyncio
 import logging
 import uuid
 from abc import ABC, abstractmethod
+from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor
 from typing import Any, List, Tuple
 
 from distributed import get_worker
+
 from daskqueue.utils import logger
 
+from .Protocol import Message
 from .QueuePool import QueuePool
 
 
@@ -21,6 +24,7 @@ class ConsumerBaseClass(ABC):
         self._worker = get_worker()
         self._executor = self._worker.executor
         self.tasks = []
+        self._logger = logger
 
     async def len_items(self) -> int:
         return len(self.items)
@@ -70,3 +74,15 @@ class ConsumerBaseClass(ABC):
 class DummyConsumer(ConsumerBaseClass):
     def process_item(self, item):
         logger.info(f"[Consumer {self.id}]: Processing {item}")
+
+
+class GeneralConsumer(ConsumerBaseClass):
+    def save(self, msg, result: Any) -> None:
+        if not hasattr(self, "_results"):
+            self._results = defaultdict(lambda: None)
+        self._results[msg] = result
+
+    def process_item(self, msg: Message) -> None:
+        args, kwargs = msg._data
+        result = msg.func(*args, **kwargs)
+        self.save(msg, result)

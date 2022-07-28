@@ -1,8 +1,12 @@
-from typing import Any, List
+from typing import Any, Callable, List, Union
 import numpy as np
 from distributed.worker import get_client
 import asyncio
 from .Queue import QueueActor
+from dataclasses import dataclass
+from .Protocol import Message
+
+from daskqueue.utils import logger
 
 
 class QueuePool:
@@ -34,11 +38,20 @@ class QueuePool:
         self._queue_size[key_queue] -= 1
         return self._index_queue[key_queue]
 
-    async def put(self, item, timeout=None):
+    async def submit(self, *args, **kwargs):
+        # TODO : should only be available for default worker
+        timeout = kwargs.pop("timeout") if "timeout" in kwargs else None
+        msg = Message(*args, **kwargs)
+        if not msg.is_callable():
+            raise RuntimeError
+        await self.put(msg, timeout=timeout)
+
+    async def put(self, msg: Union[Message, Any], timeout=None) -> None:
         try:
+            logger.debug(f"Put in queue_pool : {msg}")
             q = self._get_random_queue()
             self._queue_size[q.key] += 1
-            await asyncio.wait_for(q.put(item), timeout)
+            await asyncio.wait_for(q.put(msg), timeout)
         except asyncio.TimeoutError:
             pass
 

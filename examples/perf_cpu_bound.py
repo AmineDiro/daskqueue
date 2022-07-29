@@ -5,29 +5,31 @@ from daskqueue import QueuePool, ConsumerBaseClass, ConsumerPool
 from daskqueue.utils import logger
 
 
-class CPUConsumer(ConsumerBaseClass):
-    def process_item(self, item):
-        return sum(i * i for i in range(10**8))
+def process_item():
+    return sum(i * i for i in range(10**4))
 
 
 if __name__ == "__main__":
     client = Client(
         n_workers=3,
         threads_per_worker=1,
-        worker_dashboard_address=":8787",
+        dashboard_address=":8787",
         direct_to_workers=True,
     )
 
-    queue_pool = client.submit(QueuePool, 1, actor=True).result()
+    n_consumers = 1
+
+    queue_pool = client.submit(QueuePool, n_queues=1, actor=True).result()
+    # TODO : QueuePool interface, .submit()
+
     dashboard_port = client.dashboard_link.split(":")[-1]
 
-    logger.info(f" Dashboard link : http://IP:{dashboard_port}")
-    n_consumers = 2
+    logger.info(f" Dashboard link : http://localhost:{dashboard_port}")
 
-    consumer_pool = ConsumerPool(client, CPUConsumer, n_consumers, queue_pool)
+    consumer_pool = ConsumerPool(client, queue_pool, n_consumers=n_consumers)
     consumer_pool.start()
 
     for i in range(10):
-        queue_pool.put_many(list(range(10)))
+        queue_pool.submit(process_item)
 
     consumer_pool.join()

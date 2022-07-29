@@ -1,6 +1,6 @@
 from .ActorPool import ActorPool
-from .Consumer import *
-from .Queue import *
-from .QueuePool import *
-from .ConsumerPool import *
-from .Protocol import *
+from .Protocol import Message
+from .Consumer import ConsumerBaseClass, DummyConsumer, GeneralConsumer
+from .Queue import QueueActor
+from .QueuePool import QueuePool
+from .ConsumerPool import ConsumerPool

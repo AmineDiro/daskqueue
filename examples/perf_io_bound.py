@@ -1,17 +1,17 @@
 import queue
 import time
 import pytest
-from distributed import Client, LocalCluster, Actor
+from distributed import Client
 from daskqueue import QueuePool, ConsumerBaseClass, ConsumerPool
 
 from daskqueue.utils import logger
 
 
-class IOConsumer(ConsumerBaseClass):
-    def process_item(self, item):
-        logger.debug(f"[{self.id}] : Processing {item}")
-        with open("/dev/urandom", "rb") as f:
-            return f.read(100)
+def process_item():
+    time.sleep(1)
+    logger.debug("[Executor] processing ")
+    with open("/dev/urandom", "rb") as f:
+        return f.read(100)
 
 
 if __name__ == "__main__":
@@ -22,11 +22,11 @@ if __name__ == "__main__":
     ## DEBUG
     q = queue_pool.get_max_queue().result()
 
-    n_consumers = 5
-    consumer_pool = ConsumerPool(client, IOConsumer, n_consumers, queue_pool)
+    n_consumers = 1
+    consumer_pool = ConsumerPool(client, queue_pool, n_consumers=1)
     consumer_pool.start()
 
     for i in range(10):
-        queue_pool.put_many(list(range(10)))
+        queue_pool.submit(process_item)
 
     consumer_pool.join()

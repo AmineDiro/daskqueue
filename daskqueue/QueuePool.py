@@ -1,12 +1,17 @@
-from typing import Any, Callable, List, Union
-import numpy as np
-from distributed.worker import get_client
 import asyncio
-from .Queue import QueueActor
 from dataclasses import dataclass
-from .Protocol import Message
+from typing import Any, Callable, List, TypeVar, Union
+
+import numpy as np
+from distributed import worker_client
+from distributed.worker import get_client
 
 from daskqueue.utils import logger
+from .Consumer import ConsumerBaseClass, GeneralConsumer
+from .Protocol import Message
+from .Queue import QueueActor
+
+TConsumer = TypeVar("TConsumer", bound=ConsumerBaseClass)
 
 
 class QueuePool:
@@ -19,15 +24,29 @@ class QueuePool:
     def __init__(self, n_queues: List[Any]):
         # actors to be used
         self._client = get_client()
-        self._queues = self.create_queues(n_queues)
+        try:
+            self._queues = self.create_queues(n_queues)
+        except Exception:
+            raise RuntimeError("Couldn't create queues")
+        self.n_queues = n_queues
         self._index_queue = {q.key: q for q in self._queues}
         self._queue_size = {q.key: 0 for q in self._queues}
+        self.worker_class = GeneralConsumer
+
+    # def __repr__(self) -> str:
+    #     return f"QueuePool : \n\t{self.n_queues} queues \n\t{self._queue_size} pending items"
+
+    def __getitem__(self, idx: int) -> QueueActor:
+        return self._queues[idx]
 
     def create_queues(self, n_queues):
         return [
             self._client.submit(QueueActor, actor=True).result()
             for _ in range(n_queues)
         ]
+
+    def get_queue_size(self):
+        return self._queue_size
 
     def _get_random_queue(self) -> QueueActor:
         idx = np.random.randint(len(self._queues))
@@ -38,17 +57,23 @@ class QueuePool:
         self._queue_size[key_queue] -= 1
         return self._index_queue[key_queue]
 
-    async def submit(self, *args, **kwargs):
-        # TODO : should only be available for default worker
+    async def submit(self, func: Callable, *args, **kwargs):
         timeout = kwargs.pop("timeout") if "timeout" in kwargs else None
-        msg = Message(*args, **kwargs)
-        if not msg.is_callable():
-            raise RuntimeError
+        self.worker_class = (
+            kwargs.pop("worker_class")
+            if "worker_class" in kwargs
+            else self.worker_class
+        )
+        if not issubclass(self.worker_class, GeneralConsumer):
+            raise RuntimeError(
+                "Can't submit arbitrary tasks to arbitrary consumer. Please use the default GeneralConsumer class"
+            )
+        msg = Message(func, *args, **kwargs)
         await self.put(msg, timeout=timeout)
 
     async def put(self, msg: Union[Message, Any], timeout=None) -> None:
         try:
-            logger.debug(f"Put in queue_pool : {msg}")
+            logger.debug(f"[QueuePool] Item put in queue: {msg}")
             q = self._get_random_queue()
             self._queue_size[q.key] += 1
             await asyncio.wait_for(q.put(msg), timeout)
@@ -58,19 +83,19 @@ class QueuePool:
     def put_nowait(self, item: Any) -> None:
         q = self._get_random_queue()
         self._queue_size[q.key] += 1
-        q.put_nowait(item)
-
-    def put_nowait_batch(self, items):
-        pass
-        # # If maxsize is 0, queue is unbounded, so no need to check size.
-        # if self.maxsize > 0 and len(items) + self.qsize() > self.maxsize:
-        #     pass
-        # for item in items:
-        #     self.queue.put_nowait(item)
+        try:
+            q.put_nowait(item).result()
+        except asyncio.QueueFull:
+            logger.debug("reRaise same error")
+            raise asyncio.QueueFull
 
     async def put_many(self, list_items: List[Any]) -> None:
         q = self._get_random_queue()
         self._queue_size[q.key] += len(list_items)
+
+        for item in list_items:
+            logger.debug(f"Put in queue_pool : \n item {item}")
+
         await q.put_many(list_items)
 
     async def get(self, timeout=None):
@@ -87,6 +112,14 @@ class QueuePool:
             return await q.get_nowait()
         except asyncio.QueueEmpty:
             return None
+
+    def put_nowait_batch(self, items):
+        pass
+        # # If maxsize is 0, queue is unbounded, so no need to check size.
+        # if self.maxsize > 0 and len(items) + self.qsize() > self.maxsize:
+        #     pass
+        # for item in items:
+        #     self.queue.put_nowait(item)
 
     def get_nowait_batch(self, num_items):
         pass

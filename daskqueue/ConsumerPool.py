@@ -28,6 +28,12 @@ class ConsumerPool:
             for _ in range(n_consumers)
         ]
 
+    def __repr__(self) -> str:
+        return f"ConsumerPool : \n\t{self.n_consumers} Consumers \n\t{self.nb_consumed()} items consummed"
+
+    def __getitem__(self, idx: int) -> ConsumerBaseClass:
+        return self.consumers[idx]
+
     def start(self) -> None:
         """Start the consumme loop in each consumer"""
         logger.info(f"Starting {self.n_consumers} consumers")

@@ -4,6 +4,8 @@ from daskqueue import QueuePool, QueueActor
 
 from distributed.utils_test import gen_cluster
 
+from daskqueue.Queue import Full
+
 
 @gen_cluster(client=True, cluster_dump_directory=False)
 async def test_create_queue(c, s, a, b):
@@ -51,8 +53,17 @@ async def test_put_get_in_queue(c, s, a, b):
 
 
 @gen_cluster(client=True, cluster_dump_directory=False)
-async def test_put_getnowait_in_queue(c, s, a, b):
+async def test_getnowait_in_queue(c, s, a, b):
     queue = await c.submit(QueueActor, actor=True)
     await queue.put(1)
     res_get = await queue.get_nowait()
     assert res_get == 1
+
+
+@gen_cluster(client=True, cluster_dump_directory=False)
+async def test_put_limit_queue(c, s, a, b):
+    queue = await c.submit(QueueActor, maxsize=1, actor=True)
+    _ = await queue.put(1, timeout=1)
+    with pytest.raises(Full) as e_info:
+        _ = await queue.put(1, timeout=1)
+        print(f"{e_info}")

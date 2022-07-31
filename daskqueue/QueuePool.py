@@ -35,8 +35,13 @@ class QueuePoolActor:
         self._queue_size = {q.key: 0 for q in self._queues}
         self.worker_class = GeneralConsumer
 
-    def __repr__(self) -> str:
-        return f"QueuePool : \n\t{self.n_queues} queues \n\t{self._queue_size} pending items"
+    def print(self) -> str:
+        qsize = [
+            f"\n\t{k}: {self._queue_size[k] if self._queue_size[k]>=0 else 0} pending items"
+            for k in self._queue_size
+        ]
+
+        return f"QueuePool : \n\t{self.n_queues} queue(s)" + "".join(qsize)
 
     def __getitem__(self, idx: int) -> QueueActor:
         return self._queues[idx]
@@ -139,11 +144,14 @@ class QueuePoolActor:
 
 def decorator(cls):
     class Wrapper:
+        """Wrapper Interface Class to communicate with the queue Pool actor spawned in the cluster."""
+
         def __init__(self, client, n_queues):
-            self.wrap = client.submit(cls, n_queues, actor=True).result()
+            self.actor = client.submit(cls, n_queues, actor=True).result()
+            logger.info(f"Created {n_queues} queues in Cluster and one QueueManager.")
 
         def __getattr__(self, key):
-            attr = getattr(self.wrap, key)
+            attr = getattr(self.actor, key)
             if callable(attr):
 
                 @functools.wraps(attr)
@@ -151,6 +159,9 @@ def decorator(cls):
                     return attr(*args, **kwargs).result()
 
                 return func
+
+        def __repr__(self) -> str:
+            return self.actor.print().result()
 
     return Wrapper
 

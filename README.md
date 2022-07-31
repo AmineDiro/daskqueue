@@ -45,44 +45,39 @@ Usage
 This simple example show how to copy files in parallel using Dask workers and a distributed queue:
 
 ```python
-from distributed import Client, Queue
-from daskqueue import Consumer, QueuePool
+from distributed import Client
+from daskqueue import QueuePool, ConsumerPool
+from daskqueue.utils import logger
 
-def get_random_msg(start_dir:str,list_files:List[str],size:int)->List[Tuple[str,str]]:
-    pass
-
-class CopyWorker(ConsumerBaseClass):
-    ## You should always implement a concrete `process_item` where you define your processing code.
-    # Take a look at the Implementation Section
-    def process_item(self,item):
-        src, dst = item
-        shutil.copy(src,dst)
+def process_item():
+    return sum(i * i for i in range(10**8))
 
 if __name__ == "__main__":
-    client = Client(address="scheduler_address")
+    client = Client(
+        n_workers=5,
+        # task function doesn't release the GIL
+        threads_per_worker=1,
+        direct_to_workers=True,
+    )
 
-    # Params
-    n_queues = 5
-    n_consummers = 20
-    start_dir = ""
-    dst_dir= ""
+    ## Params
+    n_queues = 1
+    n_consumers = 5
 
-    # Create a distributed queue on the cluster
-    queue_pool = client.submit(QueuePool, n_queues, actor=True).result()
+    queue_pool = QueuePool(client, n_queues=n_queues)
 
-    # Start Consummer Pool
-    consumer_pool = ConsumerPool(client, CopyWorker, n_consumers, queue_pool)
+    consumer_pool = ConsumerPool(client, queue_pool, n_consumers=n_consumers)
     consumer_pool.start()
 
-    # Parallel file copy
-    l_files = os.listdir(start_dir)
+    for i in range(5):
+        queue_pool.submit(process_item)
 
-    ## Put work item on the queue
-    for _ in range(100):
-        msg = get_random_msg(start_dir,l_files,size=1000)
-        queue_pool.put_many(msg)
-
+    # Wait for all work to be done
     consumer_pool.join()
+
+    ## Get results
+    result = consumer_pool.results()
+
 ```
 
 Take a look at the `examples/` folder to get some usage.
@@ -92,7 +87,7 @@ Implementation
 -------
 You should think of daskqueue as a very simple distributed version of aiomultiprocessing. We have three basic classes:
 - `QueueActor`: Wraps a simple AsyncIO Queue object in a Dask Actor, providing an interface for putting and getting item in a **distributed AND asynchronous** fashion. Each queue runs in a separate Dask Worker and can interface with different actors in the cluster.
-- `QueuePool`: Basic Pool actor, it holds a reference to queues and their sizes. It interfaces with the Client and the Consummers. The QueuePool implements a simple scheduling on put and get :
+- `QueuePoolActor`: Basic Pool actor, it holds a reference to queues and their sizes. It interfaces with the Client and the Consummers. The QueuePool implements a simple scheduling on put and get :
     - On put : arbitrarly  chooses a random queue and puts item into it  then update the queue size reference
     - On get_max_queue : returns a queue with the highest item count then updates the queue size reference
 
@@ -121,15 +116,17 @@ TODO
 -------
 - [x] Consumer should run arbitrary funcs (ala celery)
 - [x] Use Worker's thread pool for long running tasks ( probe finished to get results)
-- [ ] CI/CD
+- [x] Wrap consummers in a Consummers class
+- [x] Implement a Distributed Join to know when to stop cluster
+- [x] Implement a `concurrency_limit` as the maximum number of active, concurrent jobs each worker process will pick up from its queue at once.
+- [x] Implement the various Queue Exceptions
+- [ ] CI/CD : Push to PyPI on release
 - [ ] Implement reliability : tasks retries, acks mechanisms ... ?
-- [ ] Implement a Distributed Join to know when to stop cluster
-- [ ] Implement a `concurrency_limit` as the maximum number of active, concurrent jobs each worker process will pick up from its queue at once.
-- [ ] Run the tasks in any WorkerPluging executor specified
-- [ ] Implement the various Queue Exceptions
-- [ ] Wrap consummers in a Consummers class
-- [ ] Bypass Queue mechanism by using zeroMQ ?
+- [ ] Notify dask dahboard ??
+- [ ] Run tasks on custom Worker's executors
 - [ ] Tests
+- [ ] Support async dask client
+- [ ] Bypass Queue mechanism by using zeroMQ ?
 
 Contributing
 --------------

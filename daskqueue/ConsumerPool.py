@@ -1,9 +1,11 @@
+import os
 import time
 from typing import TypeVar
-
+import itertools
 from distributed import Actor, Client, LocalCluster
 
-from daskqueue import ConsumerBaseClass, QueuePool, GeneralConsumer
+from daskqueue import ConsumerBaseClass, QueuePoolActor, GeneralConsumer
+from daskqueue.QueuePool import QueuePool
 from daskqueue.utils import logger
 
 TConsumer = TypeVar("TConsumer", bound=ConsumerBaseClass)
@@ -22,26 +24,32 @@ class ConsumerPool:
                 "ConsumerClass passed should be a subclass of ConsumerBaseClasse"
             )
         self.n_consumers = n_consumers
-        self.queue_pool = queue_pool
-        self.consumers = [
-            client.submit(ConsumerClass, queue_pool, actor=True).result()
-            for _ in range(n_consumers)
-        ]
+        self.queue_pool = queue_pool.actor
+        self.consumer_class = ConsumerClass
+        self.consumers = {}
+        for idx in range(n_consumers):
+            name = f"{ConsumerClass.__name__}-{idx}"
+            self.consumers[name] = client.submit(
+                ConsumerClass,
+                name,
+                self.queue_pool,
+                actor=True,
+            ).result()
 
     def __repr__(self) -> str:
-        return f"ConsumerPool : \n\t{self.n_consumers} Consumers \n\t{self.nb_consumed()} items consummed"
+        return f"ConsumerPool : \n\t{self.n_consumers} Consumer(s) \n\t{self.nb_consumed()} items consummed"
 
     def __getitem__(self, idx: int) -> ConsumerBaseClass:
-        return self.consumers[idx]
+        return self.consumers.values[idx]
 
     def start(self) -> None:
         """Start the consumme loop in each consumer"""
         logger.info(f"Starting {self.n_consumers} consumers")
-        [c.start() for c in self.consumers]
+        [c.start() for c in self.consumers.values()]
 
     def nb_consumed(self) -> None:
         """Return the number of items consumed by our ConsumerPool"""
-        return sum([c.len_items().result() for c in self.consumers])
+        return sum([c.len_items().result() for c in self.consumers.values()])
 
     def join(self, timestep: int = 2) -> None:
         """Join ConsumerPool will wait until all consumer are done processing items.
@@ -55,7 +63,7 @@ class ConsumerPool:
             f"Waiting for the {self.n_consumers} consumers to process all items in queue_pool..."
         )
         while True:
-            done_consumers = sum([c.done().result() for c in self.consumers])
+            done_consumers = sum([c.done().result() for c in self.consumers.values()])
             if done_consumers < len(self.consumers):
                 logger.debug(
                     f"[{done_consumers}/{len(self.consumers)} done]. Still processing..."
@@ -68,7 +76,15 @@ class ConsumerPool:
                 break
         self.cancel()
 
+    def results(self) -> None:
+        """Start the consumme loop in each consumer"""
+        if not hasattr(self.consumer_class, "get_results"):
+            raise NotImplementedError(
+                "Please Implement a .get_results method in your ConsumerClass"
+            )
+        return {k: self.consumers[k].get_results().result() for k in self.consumers}
+
     def cancel(self) -> None:
         """Cancels the consume loop task in each consumer."""
         logger.info(f"Cancelling {self.n_consumers} consumers.")
-        [c.cancel() for c in self.consumers]
+        [c.cancel() for c in self.consumers.values()]

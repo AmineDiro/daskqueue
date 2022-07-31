@@ -1,7 +1,8 @@
+from ast import Call
 import asyncio
 import functools
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, TypeVar, Union
+from typing import Any, Callable, Dict, List, Tuple, TypeVar, Union
 
 import numpy as np
 from distributed import Client, worker_client
@@ -66,6 +67,20 @@ class QueuePoolActor:
         key_queue = max(zip(self._queue_size.values(), self._queue_size.keys()))[1]
         self._queue_size[key_queue] -= 1
         return self._index_queue[key_queue]
+
+    async def batch_submit(
+        self,
+        list_calls: List[Tuple[Callable, ...]],
+        timeout=None,
+        worker_class=GeneralConsumer,
+        **kwargs,
+    ):
+        if not issubclass(worker_class, GeneralConsumer):
+            raise RuntimeError(
+                "Can't submit arbitrary tasks to arbitrary consumer. Please use the default GeneralConsumer class"
+            )
+        msgs = [Message(func, *args, **kwargs) for func, *args in list_calls]
+        await self.put_many(msgs)
 
     async def submit(
         self,

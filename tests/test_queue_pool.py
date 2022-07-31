@@ -87,6 +87,17 @@ def test_queuepool_inteface_submit(client):
     assert 10 == sum(queue_pool.get_queue_size().values())
 
 
+def test_queuepool_inteface_batch_submit(client):
+    n_queues = 1
+    queue_pool = QueuePool(client, n_queues)
+
+    def dummy_func():
+        pass
+
+    _ = queue_pool.batch_submit([(dummy_func,) for _ in range(10)])
+    assert 10 == sum(queue_pool.get_queue_size().values())
+
+
 def test_queuepool_inteface_submit_error(client):
     n_queues = 1
     queue_pool = QueuePool(client, n_queues)

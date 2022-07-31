@@ -1,4 +1,5 @@
 import asyncio
+import functools
 from dataclasses import dataclass
 from typing import Any, Callable, List, TypeVar, Union
 
@@ -7,6 +8,7 @@ from distributed import Client, worker_client
 from distributed.worker import get_client
 
 from daskqueue.utils import logger
+
 from .Consumer import ConsumerBaseClass, GeneralConsumer
 from .Protocol import Message
 from .Queue import QueueActor
@@ -33,8 +35,8 @@ class QueuePoolActor:
         self._queue_size = {q.key: 0 for q in self._queues}
         self.worker_class = GeneralConsumer
 
-    # def __repr__(self) -> str:
-    #     return f"QueuePool : \n\t{self.n_queues} queues \n\t{self._queue_size} pending items"
+    def __repr__(self) -> str:
+        return f"QueuePool : \n\t{self.n_queues} queues \n\t{self._queue_size} pending items"
 
     def __getitem__(self, idx: int) -> QueueActor:
         return self._queues[idx]
@@ -133,3 +135,24 @@ class QueuePoolActor:
 
         #     pass
         # return [self.queue.get_nowait() for _ in range(num_items)]
+
+
+def decorator(cls):
+    class Wrapper:
+        def __init__(self, client, n_queues):
+            self.wrap = client.submit(cls, n_queues, actor=True).result()
+
+        def __getattr__(self, key):
+            attr = getattr(self.wrap, key)
+            if callable(attr):
+
+                @functools.wraps(attr)
+                def func(*args, **kwargs):
+                    return attr(*args, **kwargs).result()
+
+                return func
+
+    return Wrapper
+
+
+QueuePool = decorator(QueuePoolActor)

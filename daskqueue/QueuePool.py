@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, List, TypeVar, Union
 
 import numpy as np
-from distributed import worker_client
+from distributed import Client, worker_client
 from distributed.worker import get_client
 
 from daskqueue.utils import logger
@@ -14,7 +14,7 @@ from .Queue import QueueActor
 TConsumer = TypeVar("TConsumer", bound=ConsumerBaseClass)
 
 
-class QueuePool:
+class QueuePoolActor:
     """Utility class to operate on a fixed pool of queues.
 
     Arguments:
@@ -57,14 +57,15 @@ class QueuePool:
         self._queue_size[key_queue] -= 1
         return self._index_queue[key_queue]
 
-    async def submit(self, func: Callable, *args, **kwargs):
-        timeout = kwargs.pop("timeout") if "timeout" in kwargs else None
-        self.worker_class = (
-            kwargs.pop("worker_class")
-            if "worker_class" in kwargs
-            else self.worker_class
-        )
-        if not issubclass(self.worker_class, GeneralConsumer):
+    async def submit(
+        self,
+        func: Callable,
+        *args,
+        timeout=None,
+        worker_class=GeneralConsumer,
+        **kwargs,
+    ):
+        if not issubclass(worker_class, GeneralConsumer):
             raise RuntimeError(
                 "Can't submit arbitrary tasks to arbitrary consumer. Please use the default GeneralConsumer class"
             )
@@ -127,5 +128,8 @@ class QueuePool:
         #     # raise Empty(
         #     #     f"Cannot get {num_items} items from queue of size " f"{self.qsize()}."
         #     # )
+        #     pass
+        # return [self.queue.get_nowait() for _ in range(num_items)]
+
         #     pass
         # return [self.queue.get_nowait() for _ in range(num_items)]

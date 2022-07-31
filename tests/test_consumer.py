@@ -4,8 +4,9 @@ from re import I
 import time
 
 import pytest
-from daskqueue import ConsumerBaseClass, QueuePool
-from daskqueue.Consumer import DummyConsumer
+from daskqueue.QueuePool import QueuePool, QueuePoolActor
+from daskqueue.Consumer import DummyConsumer, ConsumerBaseClass
+
 from distributed import Actor, Client, LocalCluster
 from distributed.utils_test import gen_cluster
 
@@ -19,7 +20,9 @@ logging.basicConfig(
 @gen_cluster(cluster_dump_directory=False)
 async def test_async_consumer_create(s, a, b):
     async with Client(s.address, asynchronous=True) as c:
-        worker = c.submit(DummyConsumer, "test", workers=[a.address], actor=True)
+        worker = c.submit(
+            DummyConsumer, "test-consumer", "test", workers=[a.address], actor=True
+        )
         worker = await worker
         assert hasattr(worker, "get_items")
         assert hasattr(worker, "len_items")
@@ -42,9 +45,11 @@ def test_create_consumer_concrete():
 @gen_cluster(client=True, cluster_dump_directory=False)
 async def test_consummer_get_item(c, s, a, b):
     async with Client(s.address, asynchronous=True) as c:
-        queue_pool = await c.submit(QueuePool, 1, actor=True)
+        queue_pool = await c.submit(QueuePoolActor, 1, actor=True)
         await queue_pool.put(1)
-        consumer = await c.submit(DummyConsumer, queue_pool, actor=True)
+        consumer = await c.submit(
+            DummyConsumer, "test-consumer", queue_pool, actor=True
+        )
         await consumer.start()
         res = await consumer.get_items()
         assert 1 == res[0]
@@ -53,9 +58,12 @@ async def test_consummer_get_item(c, s, a, b):
 @gen_cluster(client=True, cluster_dump_directory=False)
 async def test_consummer_get_item(c, s, a, b):
     async with Client(s.address, asynchronous=True) as c:
-        queue_pool = await c.submit(QueuePool, 1, actor=True)
+        queue_pool = await c.submit(QueuePoolActor, 1, actor=True)
         await queue_pool.put(1)
-        consumer = await c.submit(DummyConsumer, queue_pool, actor=True)
+        await queue_pool.put(1)
+        consumer = await c.submit(
+            DummyConsumer, "test-consumer", queue_pool, actor=True
+        )
         await consumer.start()
         assert await consumer.consume_status() == False
         await consumer.cancel()

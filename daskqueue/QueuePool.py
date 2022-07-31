@@ -1,7 +1,7 @@
 import asyncio
 import functools
 from dataclasses import dataclass
-from typing import Any, Callable, List, TypeVar, Union
+from typing import Any, Callable, Dict, List, TypeVar, Union
 
 import numpy as np
 from distributed import Client, worker_client
@@ -43,8 +43,11 @@ class QueuePoolActor:
 
         return f"QueuePool : \n\t{self.n_queues} queue(s)" + "".join(qsize)
 
-    def __getitem__(self, idx: int) -> QueueActor:
+    def get_queue(self, idx: int) -> QueueActor:
         return self._queues[idx]
+
+    def get_len(self) -> int:
+        return len(self._index_queue)
 
     def create_queues(self, n_queues):
         return [
@@ -52,7 +55,7 @@ class QueuePoolActor:
             for _ in range(n_queues)
         ]
 
-    def get_queue_size(self):
+    def get_queue_size(self) -> Dict[str, int]:
         return self._queue_size
 
     def _get_random_queue(self) -> QueueActor:
@@ -143,8 +146,8 @@ class QueuePoolActor:
 
 
 def decorator(cls):
-    class Wrapper:
-        """Wrapper Interface Class to communicate with the queue Pool actor spawned in the cluster."""
+    class Interface:
+        """Interface class to communicate with the queue Pool actor spawned in the cluster."""
 
         def __init__(self, client, n_queues):
             self.actor = client.submit(cls, n_queues, actor=True).result()
@@ -163,7 +166,13 @@ def decorator(cls):
         def __repr__(self) -> str:
             return self.actor.print().result()
 
-    return Wrapper
+        def __getitem__(self, idx: int) -> QueueActor:
+            return self.actor.get_queue(idx).result()
+
+        def __len__(self):
+            return self.actor.get_len().result()
+
+    return Interface
 
 
 QueuePool = decorator(QueuePoolActor)

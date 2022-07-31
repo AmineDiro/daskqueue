@@ -42,13 +42,16 @@ class ConsumerPool:
     def __getitem__(self, idx: int) -> ConsumerBaseClass:
         return self.consumers.values[idx]
 
+    def __len__(self) -> int:
+        return len(self.consumers)
+
     def start(self) -> None:
         """Start the consumme loop in each consumer"""
         logger.info(f"Starting {self.n_consumers} consumers")
         [c.start() for c in self.consumers.values()]
 
     def nb_consumed(self) -> None:
-        """Return the number of items consumed by our ConsumerPool"""
+        """Return the total number of items consumed by our ConsumerPool"""
         return sum([c.len_items().result() for c in self.consumers.values()])
 
     def join(self, timestep: int = 2) -> None:

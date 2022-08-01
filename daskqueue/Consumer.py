@@ -28,7 +28,7 @@ class ConsumerBaseClass(ABC):
         self._executor = self._worker.executor
         self._running_tasks = []
         self._logger = logger
-        self.max_concurrency = 1000
+        self.max_concurrency = 10000
 
     async def len_items(self) -> int:
         return len(self.items)

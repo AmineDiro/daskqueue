@@ -54,7 +54,7 @@ class ConsumerPool:
         """Return the total number of items consumed by our ConsumerPool"""
         return sum([c.len_items().result() for c in self.consumers.values()])
 
-    def join(self, timestep: int = 2) -> None:
+    def join(self, timestep: int = 2, progress: bool = False) -> None:
         """Join ConsumerPool will wait until all consumer are done processing items.
         Basically have processed all the elements of the queue_pool.
         We then cancel consumer to make sure the while loop is closed
@@ -68,12 +68,15 @@ class ConsumerPool:
         while True:
             done_consumers = sum([c.done().result() for c in self.consumers.values()])
             if done_consumers < len(self.consumers):
-                logger.debug(
+                logger.info(
                     f"[{done_consumers}/{len(self.consumers)} done]. Still processing..."
                 )
+                if progress:
+                    logger.info(self.queue_pool.print().result())
+                    logger.info(self)
                 time.sleep(timestep)
             else:
-                logger.debug(
+                logger.info(
                     f"[{done_consumers}/{len(self.consumers)}]. All consumers are done !"
                 )
                 break

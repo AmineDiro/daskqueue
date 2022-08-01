@@ -1,6 +1,6 @@
 import asyncio
 from typing import List, Tuple
-
+from daskqueue.utils import logger
 import numpy as np
 from distributed import Client
 from distributed.worker import get_worker
@@ -18,19 +18,18 @@ class QueueActor:
     def __init__(self, maxsize=-1):
         # If maxsize is less than or equal to zero, the queue size is infinite
         self.maxsize = maxsize
-        self._worker = get_worker()
-
         # Get the IOLoop running on the worker
         self.loop = self._io_loop.asyncio_loop
         self.queue = asyncio.Queue(self.maxsize, loop=self.loop)
 
     @property
+    def _worker(self):
+        return get_worker()
+
+    @property
     def _io_loop(self):
         if self._worker:
             return self._worker.io_loop
-
-    async def create_queue(self):
-        self.queue = asyncio.Queue(self.maxsize)
 
     def qsize(self):
         return self.queue.qsize()
@@ -63,7 +62,7 @@ class QueueActor:
         self.queue.put_nowait(item)
 
     def put_nowait_batch(self, items):
-        # If maxsize is 0, queue is unbounded, so no need to check size.
+        # If maxsize is <=0, queue is unbounded, so no need to check size.
         if self.maxsize > 0 and len(items) + self.qsize() > self.maxsize:
             raise Full(
                 f"Cannot add {len(items)} items to queue of size "

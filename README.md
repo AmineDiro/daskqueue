@@ -1,6 +1,7 @@
 daskqueue
 ===============
 
+[![code style](https://img.shields.io/pypi/v/daskqueue)](https://pypi.org/project/daskqueue/)
 [![licence](https://img.shields.io/github/license/AmineDiro/daskqueue)](https://github.com/AmineDiro/daskqueue/blob/main/LICENSE.md)
 [![issues](https://img.shields.io/github/issues/AmineDiro/daskqueue)](https://github.com/AmineDiro/daskqueue/issues)
 [![code style](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/ambv/black)
@@ -45,44 +46,39 @@ Usage
 This simple example show how to copy files in parallel using Dask workers and a distributed queue:
 
 ```python
-from distributed import Client, Queue
-from daskqueue import Consumer, QueuePool
+from distributed import Client
+from daskqueue import QueuePool, ConsumerPool
+from daskqueue.utils import logger
 
-def get_random_msg(start_dir:str,list_files:List[str],size:int)->List[Tuple[str,str]]:
-    pass
-
-class CopyWorker(ConsumerBaseClass):
-    ## You should always implement a concrete `process_item` where you define your processing code.
-    # Take a look at the Implementation Section
-    def process_item(self,item):
-        src, dst = item
-        shutil.copy(src,dst)
+def process_item():
+    return sum(i * i for i in range(10**8))
 
 if __name__ == "__main__":
-    client = Client(address="scheduler_address")
+    client = Client(
+        n_workers=5,
+        # task function doesn't release the GIL
+        threads_per_worker=1,
+        direct_to_workers=True,
+    )
 
-    # Params
-    n_queues = 5
-    n_consummers = 20
-    start_dir = ""
-    dst_dir= ""
+    ## Params
+    n_queues = 1
+    n_consumers = 5
 
-    # Create a distributed queue on the cluster
-    queue_pool = client.submit(QueuePool, n_queues, actor=True).result()
+    queue_pool = QueuePool(client, n_queues=n_queues)
 
-    # Start Consummer Pool
-    consumer_pool = ConsumerPool(client, CopyWorker, n_consumers, queue_pool)
+    consumer_pool = ConsumerPool(client, queue_pool, n_consumers=n_consumers)
     consumer_pool.start()
 
-    # Parallel file copy
-    l_files = os.listdir(start_dir)
+    for i in range(5):
+        queue_pool.submit(process_item)
 
-    ## Put work item on the queue
-    for _ in range(100):
-        msg = get_random_msg(start_dir,l_files,size=1000)
-        queue_pool.put_many(msg)
-
+    # Wait for all work to be done
     consumer_pool.join()
+
+    ## Get results
+    result = consumer_pool.results()
+
 ```
 
 Take a look at the `examples/` folder to get some usage.
@@ -92,7 +88,7 @@ Implementation
 -------
 You should think of daskqueue as a very simple distributed version of aiomultiprocessing. We have three basic classes:
 - `QueueActor`: Wraps a simple AsyncIO Queue object in a Dask Actor, providing an interface for putting and getting item in a **distributed AND asynchronous** fashion. Each queue runs in a separate Dask Worker and can interface with different actors in the cluster.
-- `QueuePool`: Basic Pool actor, it holds a reference to queues and their sizes. It interfaces with the Client and the Consummers. The QueuePool implements a simple scheduling on put and get :
+- `QueuePoolActor`: Basic Pool actor, it holds a reference to queues and their sizes. It interfaces with the Client and the Consummers. The QueuePool implements a simple scheduling on put and get :
     - On put : arbitrarly  chooses a random queue and puts item into it  then update the queue size reference
     - On get_max_queue : returns a queue with the highest item count then updates the queue size reference
 
@@ -100,6 +96,7 @@ You should think of daskqueue as a very simple distributed version of aiomultipr
 
 Performance and Limitations
 -------
+### Benchmarks
 The **daskqueue** library is very well suited for IO bound jobs: by running multiple consummers and queues, communication asynchronously, we can bypass the dask scheduler limit and process **millions of tasks 🥰 !! **
 
 The example copy code above was ran on cluster of 20 consummers and 5 queues. The tasks ran are basic file copy between two location (copying form NFS filer). We copied 200 000 files (~ 1.1To) without ever breaking a sweat !
@@ -111,6 +108,14 @@ We can clearly see the network saturation:
 Looking at the scheduler metrics, we can have a mean of 19.3%
 ![Image](figures/copy%20async3.PNG)
 
+You can take a look at the `benchmark/` directory for various benchmarks ran using `daskqueue` vs `dask`:
+- We put  1_000_000 tasks using dask cluster (2 nodes- 1 thread per process- 4 queues- 8 consumers)
+- The tasks were chunked using  into 1000 calls of 1000 tasks per batch
+- The client submits to the QueuePool manager using
+- The function is 'empty' : just passes and doesn't use CPU or IO
+- Processing 1_000_000 empty tasks took 338s = 5min36s 😸!!
+
+### Limitations
 As for the limitation, given the current implementation, you should be mindfull of the following limitations (this list will be updated regularly):
 - The workers don't implement a min or max tasks fetched and scheduled on the eventloop, they will continuously fetch an item, process it etc...
 - We run the tasks in the workers ThreadPool, we inherit all the limitations that the standard dask.submit method have.
@@ -121,15 +126,18 @@ TODO
 -------
 - [x] Consumer should run arbitrary funcs (ala celery)
 - [x] Use Worker's thread pool for long running tasks ( probe finished to get results)
-- [ ] CI/CD
+- [x] Wrap consummers in a Consummers class
+- [x] Implement a Distributed Join to know when to stop cluster
+- [x] Implement a `concurrency_limit` as the maximum number of active, concurrent jobs each worker process will pick up from its queue at once.
+- [x] Implement the various Queue Exceptions
+- [ ] CI/CD : Push to PyPI on release
 - [ ] Implement reliability : tasks retries, acks mechanisms ... ?
-- [ ] Implement a Distributed Join to know when to stop cluster
-- [ ] Implement a `concurrency_limit` as the maximum number of active, concurrent jobs each worker process will pick up from its queue at once.
-- [ ] Run the tasks in any WorkerPluging executor specified
-- [ ] Implement the various Queue Exceptions
-- [ ] Wrap consummers in a Consummers class
-- [ ] Bypass Queue mechanism by using zeroMQ ?
+- [ ] Notify dask dahboard ??
+- [ ] Run tasks on custom Worker's executors
+- [ ] Add benchmarks
 - [ ] Tests
+- [ ] Support async dask client
+- [ ] Bypass Queue mechanism by using zeroMQ ?
 
 Contributing
 --------------
@@ -142,6 +150,24 @@ Please try to create bug reports that are:
 - Specific. Include as much detail as possible: which version, what environment, etc.
 - Unique. Do not duplicate existing opened issues.
 - Scoped to a Single Bug. One bug per issue.
+
+Releasing
+---------
+Releases are published automatically when a tag is pushed to GitHub.
+
+```bash
+git checkout master
+git pull
+# Set next version number
+export RELEASE=x.x.x
+
+# Create tags
+git commit --allow-empty -m "Release $RELEASE"
+git tag -a $RELEASE -m "Version $RELEASE"
+
+# Push
+git push upstream --tags
+```
 
 License
 -------

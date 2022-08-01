@@ -10,4 +10,5 @@ exclude =
     old,
     build,
     dist,
-    tests/*.py
+    tests/*.py,
+    versioneer.py

@@ -9,6 +9,7 @@ import numpy as np
 from distributed import Client, Queue
 
 from daskqueue import ConsumerPool, QueuePool, ConsumerBaseClass
+from daskqueue.utils import logger
 
 
 def get_random_msg(
@@ -40,44 +41,30 @@ class CopyWorker(ConsumerBaseClass):
     # Take a look at the Implementation Section
     def process_item(self, item):
         src, dst = item
-        shutil.copy(src, dst)
+        logger.info(item)
+        # shutil.copy(src, dst)
 
 
 def main():
-    parser = argparse.ArgumentParser(description="")
-    parser.add_argument(
-        "-s",
-        "--scheduler_address",
-        type=str,
-        help="LSF Scheduler address, if None we will use Local Cluster",
-    )
-    parser.add_argument(
-        "-w",
-        "--n_workers",
-        type=str,
-        help="LSF Scheduler address, if None we will use Local Cluster",
-    )
-    parser.add_argument(
-        "-q",
-        "--n_queues",
-        type=str,
-        help="LSF Scheduler address, if None we will use Local Cluster",
-    )
-    args = parser.parse_args()
 
-    client = Client(address=args.scheduler_address)
+    client = Client(
+        n_workers=5,
+        threads_per_worker=1,
+        dashboard_address=":3338",
+        direct_to_workers=True,
+    )
 
     ## Params
-    start_dir = ""
-    dst_dir = ""
-    n_queues = args.n_queues  # +1 queue pool thread
-    n_consumers = args.n_workers
+    start_dir = "/home/amine/Documents"
+    dst_dir = "/home/amine/Documents"
+    n_queues = 1
+    n_consumers = 2
 
     # Queue Pool  with basic load balancing
-    queue_pool = client.submit(QueuePool, n_queues, actor=True).result()
+    queue_pool = QueuePool(client, n_queues)
 
     # Start Consummers
-    consumer_pool = ConsumerPool(client, CopyWorker, n_consumers, queue_pool)
+    consumer_pool = ConsumerPool(client, queue_pool, CopyWorker, n_consumers)
     consumer_pool.start()
 
     # Put copy Msg

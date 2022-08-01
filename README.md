@@ -151,6 +151,23 @@ Please try to create bug reports that are:
 - Unique. Do not duplicate existing opened issues.
 - Scoped to a Single Bug. One bug per issue.
 
+Releasing
+---------
+Releases are published automatically when a tag is pushed to GitHub.
+
+```bash
+
+   # Set next version number
+   export RELEASE=x.x.x
+
+   # Create tags
+   git commit --allow-empty -m "Release $RELEASE"
+   git tag -a $RELEASE -m "Version $RELEASE"
+
+   # Push
+   git push upstream --tags
+```
+
 License
 -------
 

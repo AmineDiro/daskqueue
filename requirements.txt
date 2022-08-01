@@ -122,7 +122,6 @@ soupsieve==2.3.2.post1
 stack-data==0.3.0
 tblib==1.7.0
 terminado==0.15.0
-test-daskqueue==0.1.0
 tinycss2==1.1.1
 toml==0.10.2
 tomli==2.0.1

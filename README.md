@@ -95,6 +95,7 @@ You should think of daskqueue as a very simple distributed version of aiomultipr
 
 Performance and Limitations
 -------
+### Benchmarks
 The **daskqueue** library is very well suited for IO bound jobs: by running multiple consummers and queues, communication asynchronously, we can bypass the dask scheduler limit and process **millions of tasks 🥰 !! **
 
 The example copy code above was ran on cluster of 20 consummers and 5 queues. The tasks ran are basic file copy between two location (copying form NFS filer). We copied 200 000 files (~ 1.1To) without ever breaking a sweat !
@@ -106,6 +107,14 @@ We can clearly see the network saturation:
 Looking at the scheduler metrics, we can have a mean of 19.3%
 ![Image](figures/copy%20async3.PNG)
 
+You can take a look at the `benchmark/` directory for various benchmarks ran using `daskqueue` vs `dask`:
+- We put  1_000_000 tasks using dask cluster (2 nodes- 1 thread per process- 4 queues- 8 consumers)
+- The tasks were chunked using  into 1000 calls of 1000 tasks per batch
+- The client submits to the QueuePool manager using
+- The function is 'empty' : just passes and doesn't use CPU or IO
+- Processing 1_000_000 empty tasks took 338s = 5min36s 😸!!
+
+### Limitations
 As for the limitation, given the current implementation, you should be mindfull of the following limitations (this list will be updated regularly):
 - The workers don't implement a min or max tasks fetched and scheduled on the eventloop, they will continuously fetch an item, process it etc...
 - We run the tasks in the workers ThreadPool, we inherit all the limitations that the standard dask.submit method have.
@@ -124,6 +133,7 @@ TODO
 - [ ] Implement reliability : tasks retries, acks mechanisms ... ?
 - [ ] Notify dask dahboard ??
 - [ ] Run tasks on custom Worker's executors
+- [ ] Add benchmarks
 - [ ] Tests
 - [ ] Support async dask client
 - [ ] Bypass Queue mechanism by using zeroMQ ?

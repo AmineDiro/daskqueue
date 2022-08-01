@@ -1,6 +1,7 @@
 daskqueue
 ===============
 
+[![code style](https://img.shields.io/pypi/v/daskqueue)](https://pypi.org/project/daskqueue/)
 [![licence](https://img.shields.io/github/license/AmineDiro/daskqueue)](https://github.com/AmineDiro/daskqueue/blob/main/LICENSE.md)
 [![issues](https://img.shields.io/github/issues/AmineDiro/daskqueue)](https://github.com/AmineDiro/daskqueue/issues)
 [![code style](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/ambv/black)

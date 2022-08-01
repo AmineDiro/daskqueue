@@ -1,3 +1,4 @@
+import versioneer
 from setuptools import find_packages, setup
 
 from os import path
@@ -10,12 +11,12 @@ description = "daskqueue distributed queue package"
 
 long_description = open("README.md").read()
 
-version = "0.1.4"
 
 setup(
     name="daskqueue",
     packages=find_packages(exclude=["*tests*"]),
-    version=version,
+    version=versioneer.get_version(),
+    cmdclass=versioneer.get_cmdclass(),
     license="MIT",
     description=description,
     project_urls={

@@ -156,16 +156,17 @@ Releasing
 Releases are published automatically when a tag is pushed to GitHub.
 
 ```bash
+git checkout master
+git pull
+# Set next version number
+export RELEASE=x.x.x
 
-   # Set next version number
-   export RELEASE=x.x.x
+# Create tags
+git commit --allow-empty -m "Release $RELEASE"
+git tag -a $RELEASE -m "Version $RELEASE"
 
-   # Create tags
-   git commit --allow-empty -m "Release $RELEASE"
-   git tag -a $RELEASE -m "Version $RELEASE"
-
-   # Push
-   git push upstream --tags
+# Push
+git push upstream --tags
 ```
 
 License

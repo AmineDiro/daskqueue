@@ -42,7 +42,7 @@ class QueuePoolActor:
             for k in self._queue_size
         ]
 
-        return f"QueuePool : \n\t{self.n_queues} queue(s)" + "".join(qsize)
+        return f"QueuePool : {self.n_queues} queue(s)" + "".join(qsize)
 
     def get_queue(self, idx: int) -> QueueActor:
         return self._queues[idx]

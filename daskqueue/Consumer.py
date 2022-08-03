@@ -19,7 +19,7 @@ from .Protocol import Message
 
 
 class ConsumerBaseClass(ABC):
-    def __init__(self, name, pool) -> None:
+    def __init__(self, name, pool, max_concurrency: int = 10000) -> None:
         self.name = name + f"-{os.getpid()}"
         self.pool = pool
         self.future = None
@@ -28,10 +28,13 @@ class ConsumerBaseClass(ABC):
         self._executor = self._worker.executor
         self._running_tasks = []
         self._logger = logger
-        self.max_concurrency = 10000
+        self.max_concurrency = max_concurrency
 
     async def len_items(self) -> int:
         return len(self.items)
+
+    async def len_pending_items(self) -> int:
+        return len(self._running_tasks)
 
     async def get_items(self) -> List[Any]:
         return self.items
@@ -44,9 +47,9 @@ class ConsumerBaseClass(ABC):
     async def consume_status(self) -> bool:
         return self.fetch_loop.cancelled()
 
-    async def start(self) -> None:
+    async def start(self, timeout: int = 1) -> None:
         """Starts the consumming loop, runs on Dask Worker's Tornado event loop."""
-        self.fetch_loop = asyncio.create_task(self._consume())
+        self.fetch_loop = asyncio.create_task(self._consume(timeout))
 
     async def update_state(self) -> None:
         _done_tasks = [task for task in self._running_tasks if task.done()]
@@ -76,7 +79,9 @@ class ConsumerBaseClass(ABC):
             self._running_tasks.append(task)
 
             if len(self._running_tasks) > self.max_concurrency:
-                await asyncio.gather(*self._running_tasks, return_exceptions=True)
+                done, pending = await asyncio.wait(
+                    self._running_tasks, return_when=asyncio.FIRST_COMPLETED
+                )
 
     async def cancel(self) -> None:
         """Cancels the running _consume task"""
@@ -104,10 +109,12 @@ class Backend:
 
 
 class GeneralConsumer(ConsumerBaseClass):
-    def __init__(self, name: str, pool, backend: Backend = None) -> None:
+    def __init__(
+        self, name: str, pool, max_concurrency, backend: Backend = None
+    ) -> None:
         self.backend = backend
         self._results = defaultdict(lambda: None)
-        super().__init__(name, pool)
+        super().__init__(name, pool, max_concurrency)
 
     def get_results(self) -> Dict[Message, Any]:
         return self._results

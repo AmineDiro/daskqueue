@@ -18,6 +18,7 @@ class ConsumerPool:
         queue_pool: QueuePool,
         ConsumerClass: TConsumer = GeneralConsumer,
         n_consumers: int = 1,
+        max_concurrency: int = 10000,
     ) -> None:
         if not issubclass(ConsumerClass, ConsumerBaseClass):
             raise Exception(
@@ -33,11 +34,20 @@ class ConsumerPool:
                 ConsumerClass,
                 name,
                 self.queue_pool,
+                max_concurrency=max_concurrency,
                 actor=True,
             ).result()
 
+    # def __repr__(self) -> str:
+    #     return f"ConsumerPool : \n\t{self.n_consumers} Consumer(s) \n\t{self.nb_consumed()} items consummed"
+
     def __repr__(self) -> str:
-        return f"ConsumerPool : \n\t{self.n_consumers} Consumer(s) \n\t{self.nb_consumed()} items consummed"
+        consumer_info = [
+            f"\n\t{c_name}: {consumer.len_items().result()} received, {consumer.len_pending_items().result()} pending tasks"
+            for c_name, consumer in self.consumers.items()
+        ]
+
+        return f"Consumers : {self.n_consumers} Consumers(s)" + "".join(consumer_info)
 
     def __getitem__(self, idx: int) -> ConsumerBaseClass:
         return self.consumers.values[idx]
@@ -45,10 +55,10 @@ class ConsumerPool:
     def __len__(self) -> int:
         return len(self.consumers)
 
-    def start(self) -> None:
+    def start(self, timeout: int = 1) -> None:
         """Start the consumme loop in each consumer"""
         logger.info(f"Starting {self.n_consumers} consumers")
-        [c.start() for c in self.consumers.values()]
+        [c.start(timeout) for c in self.consumers.values()]
 
     def nb_consumed(self) -> None:
         """Return the total number of items consumed by our ConsumerPool"""

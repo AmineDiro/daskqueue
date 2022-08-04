@@ -20,7 +20,8 @@ from .Protocol import Message
 
 class ConsumerBaseClass(ABC):
     def __init__(self, name, pool, max_concurrency: int = 10000) -> None:
-        self.name = name + f"-{os.getpid()}"
+        self.pid = os.getpid()
+        self.name = name + f"-{self.pid}"
         self.pool = pool
         self.future = None
         self.items = []
@@ -60,14 +61,23 @@ class ConsumerBaseClass(ABC):
     async def _consume(self, timeout: int = 1) -> None:
         """Runs an async loop to fetch item from a queue determined by the QueuePool and processes it in place"""
         loop = asyncio.get_event_loop()
+        queues = await self.pool.get_queues()
+        queues.sort(key=lambda q: hash(q) % self.pid)
+        self._queues = iter(queues)
+        self._current_q = next(self._queues)
+        logger.info(f"Consumer queues: {queues}")
         while True:
             await self.update_state()
 
-            q = await self.pool.get_max_queue()
-            item = await q.get(timeout=timeout)
+            item = await self._current_q.get(timeout=timeout)
 
             if item is None:
-                break
+                # Move to the next queue to see if there is work to be done
+                try:
+                    self._current_q = next(self._queues)
+                    continue
+                except StopIteration:
+                    break
 
             logger.debug(f"[{self.name}]: Received item : {item}")
             self.items.append(item)

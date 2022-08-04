@@ -78,7 +78,7 @@ class ConsumerPool:
         while True:
             done_consumers = sum([c.done().result() for c in self.consumers.values()])
             if done_consumers < len(self.consumers):
-                logger.info(
+                logger.debug(
                     f"[{done_consumers}/{len(self.consumers)} done]. Still processing..."
                 )
                 if progress:
@@ -103,4 +103,4 @@ class ConsumerPool:
     def cancel(self) -> None:
         """Cancels the consume loop task in each consumer."""
         logger.info(f"Cancelling {self.n_consumers} consumers.")
-        [c.cancel() for c in self.consumers.values()]
+        [c.cancel().result() for c in self.consumers.values()]

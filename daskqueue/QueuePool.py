@@ -38,8 +38,8 @@ class QueuePoolActor:
 
     def print(self) -> str:
         qsize = [
-            f"\n\t{k}: {self._queue_size[k] if self._queue_size[k]>=0 else 0} pending items"
-            for k in self._queue_size
+            f"\n\t{idx}: {q.qsize().result()} pending items"
+            for idx, q in self._index_queue.items()
         ]
 
         return f"QueuePool : {self.n_queues} queue(s)" + "".join(qsize)
@@ -57,12 +57,16 @@ class QueuePoolActor:
         ]
 
     def get_queue_size(self) -> Dict[str, int]:
-        return self._queue_size
+        return [q.qsize().result() for q in self._index_queue.values()]
 
     def _get_random_queue(self) -> QueueActor:
         idx = np.random.randint(len(self._queues))
         return self._queues[idx]
 
+    async def get_queues(self) -> List[QueueActor]:
+        return self._queues
+
+    # TODO : Don't need this
     async def get_max_queue(self) -> QueueActor:
         key_queue = max(zip(self._queue_size.values(), self._queue_size.keys()))[1]
         self._queue_size[key_queue] -= 1

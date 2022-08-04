@@ -12,7 +12,7 @@ from daskqueue.utils import logger
 
 from .Consumer import ConsumerBaseClass, GeneralConsumer
 from .Protocol import Message
-from .Queue import QueueActor
+from .Queue import Full, QueueActor
 
 TConsumer = TypeVar("TConsumer", bound=ConsumerBaseClass)
 
@@ -86,25 +86,26 @@ class QueuePoolActor:
         msgs = [Message(func, *args, **kwargs) for func, *args in list_calls]
         await self.put_many(msgs)
 
-    async def submit(
-        self,
-        func: Callable,
-        *args,
-        timeout=None,
-        worker_class=GeneralConsumer,
-        **kwargs,
-    ):
-        if not issubclass(worker_class, GeneralConsumer):
-            raise RuntimeError(
-                "Can't submit arbitrary tasks to arbitrary consumer. Please use the default GeneralConsumer class"
-            )
-        msg = Message(func, *args, **kwargs)
-        await self.put(msg, timeout=timeout)
+    # async def submit(
+    #     self,
+    #     func: Callable,
+    #     *args,
+    #     timeout=None,
+    #     worker_class=GeneralConsumer,
+    #     **kwargs,
+    # ):
+    #     if not issubclass(worker_class, GeneralConsumer):
+    #         raise RuntimeError(
+    #             "Can't submit arbitrary tasks to arbitrary consumer. Please use the default GeneralConsumer class"
+    #         )
+    #     msg = Message(func, *args, **kwargs)
+    #     await self.put(msg, timeout=timeout)
 
     async def put(self, msg: Union[Message, Any], timeout=None) -> None:
         try:
             logger.debug(f"[QueuePool] Item put in queue: {msg}")
             q = self._get_random_queue()
+            # TODO : delete this !
             self._queue_size[q.key] += 1
             await asyncio.wait_for(q.put(msg), timeout)
         except asyncio.TimeoutError:
@@ -190,6 +191,25 @@ def decorator(cls):
 
         def __len__(self):
             return self.actor.get_len().result()
+
+        def submit(
+            self,
+            func: Callable,
+            *args,
+            timeout=None,
+            worker_class=GeneralConsumer,
+            **kwargs,
+        ):
+            if not issubclass(worker_class, GeneralConsumer):
+                raise RuntimeError(
+                    "Can't submit arbitrary tasks to arbitrary consumer. Please use the default GeneralConsumer class"
+                )
+            msg = Message(func, *args, **kwargs)
+            q = self.actor._get_random_queue()
+            try:
+                q.put(msg, timeout=timeout).result()
+            except Full:
+                logger.error(f"QueueActor {q} if full.")
 
     return Interface
 

@@ -50,6 +50,10 @@ class ConsumerBaseClass(ABC):
 
     async def start(self, timeout: int = 1) -> None:
         """Starts the consumming loop, runs on Dask Worker's Tornado event loop."""
+        queues = await self.pool.get_queues()
+        queues.sort(key=lambda q: hash(q) % self.pid)
+        self._queues = iter(queues)
+        self._current_q = next(self._queues)
         self.fetch_loop = asyncio.create_task(self._consume(timeout))
 
     async def update_state(self) -> None:
@@ -61,11 +65,6 @@ class ConsumerBaseClass(ABC):
     async def _consume(self, timeout: int = 1) -> None:
         """Runs an async loop to fetch item from a queue determined by the QueuePool and processes it in place"""
         loop = asyncio.get_event_loop()
-        queues = await self.pool.get_queues()
-        queues.sort(key=lambda q: hash(q) % self.pid)
-        self._queues = iter(queues)
-        self._current_q = next(self._queues)
-        logger.info(f"Consumer queues: {queues}")
         while True:
             await self.update_state()
 

@@ -56,15 +56,15 @@ class QueuePoolActor:
             for _ in range(n_queues)
         ]
 
+    async def get_queues(self) -> List[QueueActor]:
+        return self._queues
+
     def get_queue_size(self) -> Dict[str, int]:
         return [q.qsize().result() for q in self._index_queue.values()]
 
     def _get_random_queue(self) -> QueueActor:
         idx = np.random.randint(len(self._queues))
         return self._queues[idx]
-
-    async def get_queues(self) -> List[QueueActor]:
-        return self._queues
 
     # TODO : Don't need this
     async def get_max_queue(self) -> QueueActor:
@@ -86,28 +86,28 @@ class QueuePoolActor:
         msgs = [Message(func, *args, **kwargs) for func, *args in list_calls]
         await self.put_many(msgs)
 
-    # async def submit(
-    #     self,
-    #     func: Callable,
-    #     *args,
-    #     timeout=None,
-    #     worker_class=GeneralConsumer,
-    #     **kwargs,
-    # ):
-    #     if not issubclass(worker_class, GeneralConsumer):
-    #         raise RuntimeError(
-    #             "Can't submit arbitrary tasks to arbitrary consumer. Please use the default GeneralConsumer class"
-    #         )
-    #     msg = Message(func, *args, **kwargs)
-    #     await self.put(msg, timeout=timeout)
+    async def submit(
+        self,
+        func: Callable,
+        *args,
+        timeout=None,
+        worker_class=GeneralConsumer,
+        **kwargs,
+    ):
+        if not issubclass(worker_class, GeneralConsumer):
+            raise RuntimeError(
+                "Can't submit arbitrary tasks to arbitrary consumer. Please use the default GeneralConsumer class"
+            )
+        msg = Message(func, *args, **kwargs)
+        await self.put(msg, timeout=timeout)
 
     async def put(self, msg: Union[Message, Any], timeout=None) -> None:
         try:
             logger.debug(f"[QueuePool] Item put in queue: {msg}")
             q = self._get_random_queue()
             # TODO : delete this !
-            self._queue_size[q.key] += 1
             await asyncio.wait_for(q.put(msg), timeout)
+            self._queue_size[q.key] += 1
         except asyncio.TimeoutError:
             pass
 
@@ -192,24 +192,24 @@ def decorator(cls):
         def __len__(self):
             return self.actor.get_len().result()
 
-        def submit(
-            self,
-            func: Callable,
-            *args,
-            timeout=None,
-            worker_class=GeneralConsumer,
-            **kwargs,
-        ):
-            if not issubclass(worker_class, GeneralConsumer):
-                raise RuntimeError(
-                    "Can't submit arbitrary tasks to arbitrary consumer. Please use the default GeneralConsumer class"
-                )
-            msg = Message(func, *args, **kwargs)
-            q = self.actor._get_random_queue()
-            try:
-                q.put(msg, timeout=timeout).result()
-            except Full:
-                logger.error(f"QueueActor {q} if full.")
+        # def submit(
+        #     self,
+        #     func: Callable,
+        #     *args,
+        #     timeout=None,
+        #     worker_class=GeneralConsumer,
+        #     **kwargs,
+        # ):
+        #     if not issubclass(worker_class, GeneralConsumer):
+        #         raise RuntimeError(
+        #             "Can't submit arbitrary tasks to arbitrary consumer. Please use the default GeneralConsumer class"
+        #         )
+        #     msg = Message(func, *args, **kwargs)
+        #     q = self.actor._get_random_queue().result()
+        #     try:
+        #         q.put(msg, timeout=timeout).result()
+        #     except Full:
+        #         logger.error(f"QueueActor {q} if full.")
 
     return Interface
 

@@ -19,9 +19,9 @@ from .Protocol import Message
 
 
 class ConsumerBaseClass(ABC):
-    def __init__(self, name, pool, max_concurrency: int = 10000) -> None:
-        self.pid = os.getpid()
-        self.name = name + f"-{self.pid}"
+    def __init__(self, id: int, name, pool, max_concurrency: int = 10000) -> None:
+        self.id = id
+        self.name = name + f"-{os.getpid()}"
         self.pool = pool
         self.future = None
         self.items = []
@@ -42,8 +42,12 @@ class ConsumerBaseClass(ABC):
 
     async def done(self) -> bool:
         await self.update_state()
-        done = len(self._running_tasks) == 0 and self.fetch_loop.done()
-        return done
+        try:
+            done = len(self._running_tasks) == 0 and self.fetch_loop.done()
+            return done
+        except AttributeError:
+            # Hasn't started the loop yet
+            return False
 
     async def consume_status(self) -> bool:
         return self.fetch_loop.cancelled()
@@ -51,7 +55,10 @@ class ConsumerBaseClass(ABC):
     async def start(self, timeout: int = 1) -> None:
         """Starts the consumming loop, runs on Dask Worker's Tornado event loop."""
         queues = await self.pool.get_queues()
-        queues.sort(key=lambda q: hash(q) % self.pid)
+        # Hash sort the queues for different ordering by per consumer
+        queues.sort(key=lambda q: hash(q) % self.id)
+        logger.debug(f"[{self.name}]: Queue to work on {queues[0].key}")
+
         self._queues = iter(queues)
         self._current_q = next(self._queues)
         self.fetch_loop = asyncio.create_task(self._consume(timeout))
@@ -119,11 +126,11 @@ class Backend:
 
 class GeneralConsumer(ConsumerBaseClass):
     def __init__(
-        self, name: str, pool, max_concurrency, backend: Backend = None
+        self, id: int, name, pool, max_concurrency: int = 10000, backend: Backend = None
     ) -> None:
         self.backend = backend
         self._results = defaultdict(lambda: None)
-        super().__init__(name, pool, max_concurrency)
+        super().__init__(id, name, pool, max_concurrency)
 
     def get_results(self) -> Dict[Message, Any]:
         return self._results

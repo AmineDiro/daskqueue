@@ -39,7 +39,7 @@ def test_queue_pool_inteface_create(client):
     n_queues = 2
     queue_pool = QueuePool(client, n_queues)
     assert n_queues == len(queue_pool)
-    assert 0 == sum(queue_pool.get_queue_size().values())
+    assert 0 == sum(queue_pool.get_queue_size())
     assert queue_pool[0].qsize().result() == 0
     assert queue_pool[1].qsize().result() == 0
     with pytest.raises(IndexError) as e_info:
@@ -59,17 +59,17 @@ def test_queuepool_inteface_put(client):
     n_queues = 1
     queue_pool = QueuePool(client, n_queues)
     _ = queue_pool.put(1)
-    assert 1 == sum(queue_pool.get_queue_size().values())
+    assert 1 == sum(queue_pool.get_queue_size())
     _ = queue_pool.put(1)
     _ = queue_pool.put(1)
-    assert 3 == sum(queue_pool.get_queue_size().values())
+    assert 3 == sum(queue_pool.get_queue_size())
 
 
 def test_queuepool_inteface_put_many(client):
     n_queues = 1
     queue_pool = QueuePool(client, n_queues)
     _ = queue_pool.put_many([1, 2, 3])
-    assert 3 == sum(queue_pool.get_queue_size().values())
+    assert 3 == sum(queue_pool.get_queue_size())
 
 
 def test_queuepool_inteface_submit(client):
@@ -80,11 +80,11 @@ def test_queuepool_inteface_submit(client):
         pass
 
     _ = queue_pool.submit(dummy_func)
-    assert 1 == sum(queue_pool.get_queue_size().values())
+    assert 1 == sum(queue_pool.get_queue_size())
 
     for _ in range(9):
         _ = queue_pool.submit(dummy_func)
-    assert 10 == sum(queue_pool.get_queue_size().values())
+    assert 10 == sum(queue_pool.get_queue_size())
 
 
 def test_queuepool_inteface_batch_submit(client):
@@ -95,7 +95,7 @@ def test_queuepool_inteface_batch_submit(client):
         pass
 
     _ = queue_pool.batch_submit([(dummy_func,) for _ in range(10)])
-    assert 10 == sum(queue_pool.get_queue_size().values())
+    assert 10 == sum(queue_pool.get_queue_size())
 
 
 def test_queuepool_inteface_submit_error(client):

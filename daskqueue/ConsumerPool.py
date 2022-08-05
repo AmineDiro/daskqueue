@@ -12,6 +12,8 @@ TConsumer = TypeVar("TConsumer", bound=ConsumerBaseClass)
 
 
 class ConsumerPool:
+    _counter = itertools.count()
+
     def __init__(
         self,
         client: Client,
@@ -32,6 +34,7 @@ class ConsumerPool:
             name = f"{ConsumerClass.__name__}-{idx}"
             self.consumers[name] = client.submit(
                 ConsumerClass,
+                idx + 1,
                 name,
                 self.queue_pool,
                 max_concurrency=max_concurrency,
@@ -64,7 +67,9 @@ class ConsumerPool:
         """Return the total number of items consumed by our ConsumerPool"""
         return sum([c.len_items().result() for c in self.consumers.values()])
 
-    def join(self, timestep: int = 2, progress: bool = False) -> None:
+    def join(
+        self, timestep: int = 2, print_timestep: int = 2, progress: bool = False
+    ) -> None:
         """Join ConsumerPool will wait until all consumer are done processing items.
         Basically have processed all the elements of the queue_pool.
         We then cancel consumer to make sure the while loop is closed
@@ -75,15 +80,17 @@ class ConsumerPool:
         logger.info(
             f"Waiting for the {self.n_consumers} consumers to process all items in queue_pool..."
         )
+        start_join = time.time()
         while True:
             done_consumers = sum([c.done().result() for c in self.consumers.values()])
             if done_consumers < len(self.consumers):
                 logger.debug(
                     f"[{done_consumers}/{len(self.consumers)} done]. Still processing..."
                 )
-                if progress:
+                if progress and (time.time() - start_join > print_timestep):
                     logger.info(self.queue_pool.print().result())
                     logger.info(self)
+                    start_join = time.time()
                 time.sleep(timestep)
             else:
                 logger.info(

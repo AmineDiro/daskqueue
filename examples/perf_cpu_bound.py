@@ -19,22 +19,16 @@ if __name__ == "__main__":
     )
 
     ## Params
-    n_queues = 1
-    n_consumers = 5
+    n_queues = 2
+    n_consumers = 2
 
     queue_pool = QueuePool(client, n_queues)
 
     consumer_pool = ConsumerPool(client, queue_pool, n_consumers=n_consumers)
-
-    print(queue_pool)
-    print(consumer_pool)
 
     consumer_pool.start()
 
     for i in range(5):
         queue_pool.submit(process_item)
 
-    consumer_pool.join()
-
-    print(queue_pool)
-    print(consumer_pool)
+    consumer_pool.join(timestep=0.01, print_timestep=2, progress=True)

@@ -36,6 +36,7 @@ def test_consumer_pool_create(client):
 def test_consumer_pool_submit_pure(client):
     n_queues = 1
     queue_pool = QueuePool(client, n_queues)
+
     n_consumers = 2
     consumer_pool = ConsumerPool(client, queue_pool=queue_pool, n_consumers=n_consumers)
 
@@ -46,7 +47,7 @@ def test_consumer_pool_submit_pure(client):
     consumer_pool.join()
     res = consumer_pool.results()
     assert 10 * [2] == [val for k in res for val in res[k].values()]
-    assert sum(queue_pool.get_queue_size().values()) <= 0
+    assert sum(queue_pool.get_queue_size()) <= 0
 
 
 def test_consumer_pool_submit_noreturn(client):

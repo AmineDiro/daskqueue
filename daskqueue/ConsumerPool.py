@@ -82,19 +82,17 @@ class ConsumerPool:
         )
         start_join = time.time()
         while True:
-            done_consumers = sum([c.done().result() for c in self.consumers.values()])
-            if done_consumers < len(self.consumers):
-                logger.debug(
-                    f"[{done_consumers}/{len(self.consumers)} done]. Still processing..."
-                )
+            done_consumers = all([c.done().result() for c in self.consumers.values()])
+            if not done_consumers:
                 if progress and (time.time() - start_join > print_timestep):
+                    logger.debug("Still processing...")
                     logger.info(self.queue_pool.print().result())
                     logger.info(self)
                     start_join = time.time()
                 time.sleep(timestep)
             else:
                 logger.info(
-                    f"[{done_consumers}/{len(self.consumers)}]. All consumers are done !"
+                    f"All consumers are done ! {self.nb_consumed()} items processed. "
                 )
                 break
         self.cancel()

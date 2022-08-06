@@ -1,6 +1,7 @@
 from ast import Call
 import asyncio
 import functools
+import itertools
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Tuple, TypeVar, Union
 
@@ -31,6 +32,9 @@ class QueuePoolActor:
             self._queues = self.create_queues(n_queues)
         except Exception:
             raise RuntimeError("Couldn't create queues")
+        self._cycle_queues_put = itertools.cycle(self._queues)
+        self._cycle_queues_get = itertools.cycle(self._queues)
+
         self.n_queues = n_queues
         self._index_queue = {q.key: q for q in self._queues}
         self._queue_size = {q.key: 0 for q in self._queues}
@@ -44,9 +48,6 @@ class QueuePoolActor:
 
         return f"QueuePool : {self.n_queues} queue(s)" + "".join(qsize)
 
-    def get_queue(self, idx: int) -> QueueActor:
-        return self._queues[idx]
-
     def get_len(self) -> int:
         return len(self._index_queue)
 
@@ -55,6 +56,9 @@ class QueuePoolActor:
             self._client.submit(QueueActor, actor=True).result()
             for _ in range(n_queues)
         ]
+
+    def get_next_queue(self) -> QueueActor:
+        return next(self._cycle_queues_get)
 
     async def get_queues(self) -> List[QueueActor]:
         return self._queues
@@ -104,7 +108,7 @@ class QueuePoolActor:
     async def put(self, msg: Union[Message, Any], timeout=None) -> None:
         try:
             logger.debug(f"[QueuePool] Item put in queue: {msg}")
-            q = self._get_random_queue()
+            q = next(self._cycle_queues_put)
             # TODO : delete this !
             await asyncio.wait_for(q.put(msg), timeout)
             self._queue_size[q.key] += 1
@@ -121,13 +125,12 @@ class QueuePoolActor:
             raise asyncio.QueueFull
 
     async def put_many(self, list_items: List[Any]) -> None:
-        q = self._get_random_queue()
-        self._queue_size[q.key] += len(list_items)
-
+        tasks = []
         for item in list_items:
             logger.debug(f"Put in queue_pool : \n item {item}")
+            tasks.append(asyncio.create_task(self.put(item)))
 
-        await q.put_many(list_items)
+        await asyncio.gather(*tasks)
 
     async def get(self, timeout=None):
         try:

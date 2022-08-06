@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+from asyncio import queues
 import logging
 import os
 from re import L
@@ -54,13 +55,15 @@ class ConsumerBaseClass(ABC):
 
     async def start(self, timeout: int = 1) -> None:
         """Starts the consumming loop, runs on Dask Worker's Tornado event loop."""
-        queues = await self.pool.get_queues()
         # Hash sort the queues for different ordering by per consumer
-        queues.sort(key=lambda q: hash(q) % self.id)
-        logger.debug(f"[{self.name}]: Queue to work on {queues[0].key}")
+        # DEBUG
+        # queues = await self.pool.get_queues()
+        # queues.sort(key=lambda q: hash(q) % self.id)
+        # logger.debug(f"[{self.name}]: Queue to work on {queues[0].key}")
+        # self._queues = iter(queues)
+        # self._current_q = next(self._queues)
 
-        self._queues = iter(queues)
-        self._current_q = next(self._queues)
+        self._current_q = await self.pool.get_next_queue()
         self.fetch_loop = asyncio.create_task(self._consume(timeout))
 
     async def update_state(self) -> None:
@@ -69,7 +72,7 @@ class ConsumerBaseClass(ABC):
             logger.debug(f"[{self.name}]: Cleaning done tasks")
             self._running_tasks.remove(task)
 
-    async def _consume(self, timeout: int = 1) -> None:
+    async def _consume(self, timeout: float = 0.1) -> None:
         """Runs an async loop to fetch item from a queue determined by the QueuePool and processes it in place"""
         loop = asyncio.get_event_loop()
         while True:
@@ -79,11 +82,11 @@ class ConsumerBaseClass(ABC):
 
             if item is None:
                 # Move to the next queue to see if there is work to be done
-                try:
-                    self._current_q = next(self._queues)
-                    continue
-                except StopIteration:
-                    break
+                # try:
+                #     self._current_q = next(self._queues)
+                #     continue
+                # except StopIteration:
+                break
 
             logger.debug(f"[{self.name}]: Received item : {item}")
             self.items.append(item)

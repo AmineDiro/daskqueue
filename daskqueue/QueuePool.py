@@ -68,6 +68,9 @@ class QueuePoolActor:
     async def get_queues(self) -> List[QueueActor]:
         return self._queues
 
+    async def get_queue(self, idx: int) -> QueueActor:
+        return self._queues[idx]
+
     def get_queue_size(self) -> Dict[str, int]:
         return {q: q.qsize().result() for q in self._queues}
 
@@ -75,7 +78,7 @@ class QueuePoolActor:
         idx = np.random.randint(len(self._queues))
         return self._queues[idx]
 
-    # TODO : Don't need this
+    # TODO : Don't need this ??
     async def get_max_queue(self) -> QueueActor:
         queues_size = self.get_queue_size()
         logger.info(f"queues_size : {queues_size}")
@@ -155,21 +158,6 @@ class QueuePoolActor:
             ## TODO : implement canceling tasks  in Queue and QueuePool
             raise PutTimeout(f"Couldn't put all element in queue : {q}")
 
-    async def get(self, timeout=None):
-        try:
-            q = await self.get_max_queue()
-            return await q.get(timeout)
-        except asyncio.TimeoutError:
-            # TODO : Reincrement the q , no item retrieved
-            return None
-
-    async def get_nowait(self):
-        try:
-            q = await self.get_max_queue()
-            return await q.get_nowait()
-        except asyncio.QueueEmpty:
-            return None
-
     def put_nowait_batch(self, items):
         pass
         # # If maxsize is 0, queue is unbounded, so no need to check size.
@@ -177,18 +165,6 @@ class QueuePoolActor:
         #     pass
         # for item in items:
         #     self.queue.put_nowait(item)
-
-    def get_nowait_batch(self, num_items):
-        pass
-        # if num_items > self.qsize():
-        #     # raise Empty(
-        #     #     f"Cannot get {num_items} items from queue of size " f"{self.qsize()}."
-        #     # )
-        #     pass
-        # return [self.queue.get_nowait() for _ in range(num_items)]
-
-        #     pass
-        # return [self.queue.get_nowait() for _ in range(num_items)]
 
 
 def decorator(cls):

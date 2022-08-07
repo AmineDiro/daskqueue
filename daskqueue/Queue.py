@@ -42,7 +42,7 @@ class QueueActor:
 
     async def put_many(self, list_items):
         for item in list_items:
-            asyncio.create_task(self.queue.put(item))
+            await self.queue.put(item)
 
     async def put(self, item, timeout=None):
         try:

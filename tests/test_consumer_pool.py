@@ -36,6 +36,7 @@ def test_consumer_pool_create(client):
 def test_consumer_pool_submit_pure(client):
     n_queues = 1
     queue_pool = QueuePool(client, n_queues)
+
     n_consumers = 2
     consumer_pool = ConsumerPool(client, queue_pool=queue_pool, n_consumers=n_consumers)
 

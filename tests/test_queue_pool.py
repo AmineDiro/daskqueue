@@ -10,24 +10,6 @@ from distributed.utils_test import gen_cluster
 
 
 @gen_cluster(client=True, cluster_dump_directory=False)
-async def test_queue_getting_empty(c, s, a, b):
-    n_queues = 2
-    queue_pool = await c.submit(QueuePoolActor, n_queues, actor=True)
-    res = await queue_pool.get_nowait()
-    assert None == res
-    res = await queue_pool.get(timeout=1)
-    assert None == res
-
-
-@gen_cluster(client=True, cluster_dump_directory=False)
-async def test_put_queuepool(c, s, a, b):
-    n_queues = 2
-    queue_pool = await c.submit(QueuePoolActor, n_queues, actor=True)
-    res = await queue_pool.put(12)
-    assert None == res
-
-
-@gen_cluster(client=True, cluster_dump_directory=False)
 async def test_putmany_queuepool(c, s, a, b):
     n_queues = 2
     queue_pool = await c.submit(QueuePoolActor, n_queues, actor=True)
@@ -44,15 +26,6 @@ def test_queue_pool_inteface_create(client):
     assert queue_pool[1].qsize().result() == 0
     with pytest.raises(IndexError) as e_info:
         _ = queue_pool[3]
-
-
-def test_queuepool_inteface_get_fromempty(client):
-    n_queues = 1
-    queue_pool = QueuePool(client, n_queues)
-    res_get = queue_pool.get(timeout=1)
-    res_getnowait = queue_pool.get_nowait()
-    assert res_get == None
-    assert res_getnowait == None
 
 
 def test_queuepool_inteface_put(client):

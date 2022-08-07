@@ -1,7 +1,7 @@
-from ast import Call
 import asyncio
 import functools
 import itertools
+from ast import Call
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Tuple, TypeVar, Union
 
@@ -10,12 +10,17 @@ from distributed import Client, worker_client
 from distributed.worker import get_client
 
 from daskqueue.utils import logger
+from daskqueue.utils.funcs import msg_grouper
 
 from .Consumer import ConsumerBaseClass, GeneralConsumer
 from .Protocol import Message
 from .Queue import Full, QueueActor
 
 TConsumer = TypeVar("TConsumer", bound=ConsumerBaseClass)
+
+
+class PutTimeout(Exception):
+    pass
 
 
 class QueuePoolActor:
@@ -64,7 +69,7 @@ class QueuePoolActor:
         return self._queues
 
     def get_queue_size(self) -> Dict[str, int]:
-        return [q.qsize().result() for q in self._index_queue.values()]
+        return {q: q.qsize().result() for q in self._queues}
 
     def _get_random_queue(self) -> QueueActor:
         idx = np.random.randint(len(self._queues))
@@ -72,23 +77,12 @@ class QueuePoolActor:
 
     # TODO : Don't need this
     async def get_max_queue(self) -> QueueActor:
-        key_queue = max(zip(self._queue_size.values(), self._queue_size.keys()))[1]
-        self._queue_size[key_queue] -= 1
-        return self._index_queue[key_queue]
-
-    async def batch_submit(
-        self,
-        list_calls: List[Tuple[Callable, ...]],
-        timeout=None,
-        worker_class=GeneralConsumer,
-        **kwargs,
-    ):
-        if not issubclass(worker_class, GeneralConsumer):
-            raise RuntimeError(
-                "Can't submit arbitrary tasks to arbitrary consumer. Please use the default GeneralConsumer class"
-            )
-        msgs = [Message(func, *args, **kwargs) for func, *args in list_calls]
-        await self.put_many(msgs)
+        queues_size = self.get_queue_size()
+        logger.info(f"queues_size : {queues_size}")
+        size_max, q_max = max(zip(queues_size.values(), queues_size.keys()))
+        if size_max == 0:
+            return None
+        return q_max
 
     async def submit(
         self,
@@ -105,13 +99,42 @@ class QueuePoolActor:
         msg = Message(func, *args, **kwargs)
         await self.put(msg, timeout=timeout)
 
+    async def batch_submit(
+        self,
+        list_calls: List[Tuple[Callable, ...]],
+        timeout=None,
+        worker_class=GeneralConsumer,
+        **kwargs,
+    ):
+        """Batch submits a list of messages to the next put queue in pool.
+
+        Args:
+            list_calls (List[Tuple[Callable, ...]]): List of tasks Tuple[func, args] to submit
+            timeout (_type_, optional): Optional timeout. Defaults to None.
+            worker_class (_type_, optional): Submit is only available is using a subclass of GeneralConsumer class. Defaults to GeneralConsumer.
+
+        Raises:
+            RuntimeError: Exception if worker_class is not a subclass of GeneralConsumer
+        """
+        if not issubclass(worker_class, GeneralConsumer):
+            raise RuntimeError(
+                "Can't submit arbitrary tasks to arbitrary consumer. Please use the default GeneralConsumer class"
+            )
+        # msgs = [Message(func, *args, **kwargs) for func, *args in list_calls]
+
+        put_tasks = []
+        for msgs in msg_grouper(len(list_calls) // self.n_queues, list_calls):
+            put_tasks.append(asyncio.create_task(self.put_many(msgs, timeout)))
+
+        responses = await asyncio.gather(*put_tasks, return_exceptions=True)
+        logger.info(responses)
+
     async def put(self, msg: Union[Message, Any], timeout=None) -> None:
         try:
             logger.debug(f"[QueuePool] Item put in queue: {msg}")
             q = next(self._cycle_queues_put)
             # TODO : delete this !
             await asyncio.wait_for(q.put(msg), timeout)
-            self._queue_size[q.key] += 1
         except asyncio.TimeoutError:
             pass
 
@@ -124,13 +147,13 @@ class QueuePoolActor:
             logger.debug("reRaise same error")
             raise asyncio.QueueFull
 
-    async def put_many(self, list_items: List[Any]) -> None:
-        tasks = []
-        for item in list_items:
-            logger.debug(f"Put in queue_pool : \n item {item}")
-            tasks.append(asyncio.create_task(self.put(item)))
-
-        await asyncio.gather(*tasks)
+    async def put_many(self, list_items: List[Any], timeout=None) -> None:
+        q = next(self._cycle_queues_put)
+        try:
+            await asyncio.wait_for(q.put_many(list_items), timeout)
+        except asyncio.TimeoutError:
+            ## TODO : implement canceling tasks  in Queue and QueuePool
+            raise PutTimeout(f"Couldn't put all element in queue : {q}")
 
     async def get(self, timeout=None):
         try:

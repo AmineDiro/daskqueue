@@ -1,15 +1,9 @@
-import argparse
 import asyncio
-from asyncio import queues
+import itertools
 import logging
 import os
-from re import L
-import uuid
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from concurrent.futures import ProcessPoolExecutor
-from socketserver import TCPServer
-from turtle import update
 from typing import Any, Dict, List, Tuple
 
 from distributed import get_worker
@@ -61,7 +55,8 @@ class ConsumerBaseClass(ABC):
         # queues.sort(key=lambda q: hash(q) % self.id)
         # logger.debug(f"[{self.name}]: Queue to work on {queues[0].key}")
         # self._queues = iter(queues)
-        # self._current_q = next(self._queues)
+        # self._cycle_queues = iter(queues)
+        # self._current_q = next(self._cycle_queues)
 
         self._current_q = await self.pool.get_next_queue()
         self.fetch_loop = asyncio.create_task(self._consume(timeout))
@@ -81,12 +76,10 @@ class ConsumerBaseClass(ABC):
             item = await self._current_q.get(timeout=timeout)
 
             if item is None:
-                # Move to the next queue to see if there is work to be done
-                # try:
-                #     self._current_q = next(self._queues)
-                #     continue
-                # except StopIteration:
-                break
+                if len(self.items) == 0:
+                    continue
+                else:
+                    break
 
             logger.debug(f"[{self.name}]: Received item : {item}")
             self.items.append(item)

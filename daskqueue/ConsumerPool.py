@@ -45,15 +45,29 @@ class ConsumerPool:
     #     return f"ConsumerPool : \n\t{self.n_consumers} Consumer(s) \n\t{self.nb_consumed()} items consummed"
 
     def __repr__(self) -> str:
-        consumer_info = [
-            f"\n\t{c_name}: {consumer.len_items().result()} received, {consumer.len_pending_items().result()} pending tasks"
-            for c_name, consumer in self.consumers.items()
-        ]
+        if len(self.consumers) < 5:
+            consumer_info = [
+                f"\n\t{c_name}: {consumer.len_items().result()} received, {consumer.len_pending_items().result()} pending tasks"
+                for c_name, consumer in self.consumers.items()
+            ]
 
-        return f"Consumers : {self.n_consumers} Consumers(s)" + "".join(consumer_info)
+            return f"Consumers : {self.n_consumers} Consumers(s)" + "".join(
+                consumer_info
+            )
+        else:
+            sum_received = sum(
+                [consumer.len_items().result() for consumer in self.consumers.values()]
+            )
+            sum_pending = sum(
+                [
+                    consumer.len_pending_items().result()
+                    for consumer in self.consumers.values()
+                ]
+            )
+            return f"Consumers : \n\t{self.n_consumers} Consumers(s), \n\t{sum_received} received \n\t{sum_pending} pending "
 
     def __getitem__(self, idx: int) -> ConsumerBaseClass:
-        return self.consumers.values[idx]
+        return list(self.consumers.values())[idx]
 
     def __len__(self) -> int:
         return len(self.consumers)

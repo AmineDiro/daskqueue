@@ -1,8 +1,13 @@
+import queue
 import time
 import os
 from distributed import Client
 from daskqueue import QueuePool, ConsumerPool
 from daskqueue.utils import logger
+
+
+def inc(x):
+    return x + 1
 
 
 def process_item():
@@ -53,8 +58,3 @@ if __name__ == "__main__":
     print(queue_pool)
     print(consumer_pool)
     print(f"Processed all items in  {toc - tic:0.4f} seconds")
-
-    cqueue = [c.get_current_queue().result().key for c in consumer_pool]
-    from collections import Counter
-
-    count = Counter(cqueue)

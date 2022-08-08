@@ -7,6 +7,7 @@ from collections import defaultdict
 from typing import Any, Dict, List, Tuple
 
 from distributed import get_worker
+from daskqueue.Queue import QueueActor
 
 from daskqueue.utils import logger
 
@@ -31,6 +32,9 @@ class ConsumerBaseClass(ABC):
 
     async def len_pending_items(self) -> int:
         return len(self._running_tasks)
+
+    async def get_current_queue(self) -> QueueActor:
+        return self._current_q
 
     async def get_items(self) -> List[Any]:
         return self.items

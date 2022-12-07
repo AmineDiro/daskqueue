@@ -22,3 +22,8 @@ distributed:
   #     # NOTE: Releases memory back to the OS, check this for more info:
   #     # https://distributed.dask.org/en/latest/worker.html#memory-not-released-back-to-the-os
   #     MALLOC_TRIM_THRESHOLD_: 0
+
+logging:
+  distributed: error
+  distributed.client: error
+  bokeh: error

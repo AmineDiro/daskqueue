@@ -1,14 +1,13 @@
-import asyncio
 import logging
-from re import I
 import time
+from re import I
 
 import pytest
-from daskqueue.QueuePool import QueuePool, QueuePoolActor
-from daskqueue.Consumer import DummyConsumer, ConsumerBaseClass
-
-from distributed import Actor, Client, LocalCluster
+from distributed import Client
 from distributed.utils_test import gen_cluster
+
+from daskqueue.Consumer import ConsumerBaseClass, DummyConsumer
+from daskqueue.QueuePool import QueuePool, QueuePoolActor
 
 logging.basicConfig(
     level=logging.INFO,
@@ -29,7 +28,7 @@ async def test_async_consumer_create(s, a, b):
         assert hasattr(worker, "start")
         assert hasattr(worker, "_consume")
         assert hasattr(worker, "cancel")
-        assert hasattr(worker, "consume_status")
+        assert hasattr(worker, "is_consumming")
 
 
 def test_create_consumer_concrete():
@@ -65,6 +64,6 @@ async def test_consummer_get_item(c, s, a, b):
             DummyConsumer, 1, "test-consumer", queue_pool, actor=True
         )
         await consumer.start()
-        assert await consumer.consume_status() == False
+        assert await consumer.is_consumming() == True
         await consumer.cancel()
-        assert await consumer.consume_status() == True
+        assert await consumer.is_consumming() == False

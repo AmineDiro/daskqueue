@@ -1,9 +1,11 @@
 import asyncio
 from typing import List, Tuple
-from daskqueue.utils import logger
+
 import numpy as np
 from distributed import Client
 from distributed.worker import get_worker
+
+from daskqueue.utils import logger
 
 
 class Empty(Exception):
@@ -20,7 +22,8 @@ class QueueActor:
         self.maxsize = maxsize
         # Get the IOLoop running on the worker
         self.loop = self._io_loop.asyncio_loop
-        self.queue = asyncio.Queue(self.maxsize, loop=self.loop)
+        asyncio.set_event_loop(self.loop)
+        self.queue = asyncio.Queue(self.maxsize)
 
     @property
     def _worker(self):
@@ -52,9 +55,7 @@ class QueueActor:
 
     async def get(self, timeout=None):
         try:
-            return await asyncio.wait_for(
-                self.queue.get(), timeout=timeout, loop=self.loop
-            )
+            return await asyncio.wait_for(self.queue.get(), timeout=timeout)
         except asyncio.TimeoutError:
             return None
 

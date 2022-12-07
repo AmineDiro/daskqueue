@@ -1,21 +1,10 @@
-from multiprocessing import dummy
-import queue
-from pyparsing import conditionAsParseAction
-import pytest
-from distributed import Client, worker_client
-from daskqueue.Consumer import ConsumerBaseClass, GeneralConsumer
+from distributed.utils_test import cleanup, client, cluster_fixture, gen_cluster, loop
+
 from daskqueue.ConsumerPool import ConsumerPool
-from daskqueue.QueuePool import QueuePool, QueuePoolActor
-
-from distributed.utils_test import client, loop, cleanup, cluster_fixture
-from distributed.utils_test import gen_cluster
-
+from daskqueue.QueuePool import QueuePool
 
 add = lambda x, y: x + y
-
-
-def func_no_return():
-    pass
+func_no_return = lambda: None
 
 
 def test_consumer_pool_create(client):

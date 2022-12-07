@@ -1,16 +1,16 @@
 import asyncio
-import itertools
 import logging
 import os
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List
 
 from distributed import get_worker
-from daskqueue.Queue import QueueActor
 
+from daskqueue.Queue import QueueActor
 from daskqueue.utils import logger
 
+from .backend import Backend
 from .Protocol import Message
 
 
@@ -48,20 +48,11 @@ class ConsumerBaseClass(ABC):
             # Hasn't started the loop yet
             return False
 
-    async def consume_status(self) -> bool:
-        return self.fetch_loop.cancelled()
+    async def is_consumming(self) -> bool:
+        return not (self.fetch_loop.cancelled() or self.fetch_loop.done())
 
     async def start(self, timeout: int = 1) -> None:
         """Starts the consumming loop, runs on Dask Worker's Tornado event loop."""
-        # Hash sort the queues for different ordering by per consumer
-        # DEBUG
-        # queues = await self.pool.get_queues()
-        # queues.sort(key=lambda q: hash(q) % self.id)
-        # logger.debug(f"[{self.name}]: Queue to work on {queues[0].key}")
-        # self._queues = iter(queues)
-        # self._cycle_queues = iter(queues)
-        # self._current_q = next(self._cycle_queues)
-
         self._current_q = await self.pool.get_next_queue()
         self.fetch_loop = asyncio.create_task(self._consume(timeout))
 
@@ -106,7 +97,6 @@ class ConsumerBaseClass(ABC):
             f"[{self.name}]: Cancelling {len(self._running_tasks)} outstanding tasks"
         )
         [t.cancel() for t in self._running_tasks]
-
         self.fetch_loop.cancel()
 
     @abstractmethod
@@ -118,10 +108,6 @@ class ConsumerBaseClass(ABC):
 class DummyConsumer(ConsumerBaseClass):
     def process_item(self, item):
         logger.info(f"[{self.name}]: Processing {item}")
-
-
-class Backend:
-    pass
 
 
 class GeneralConsumer(ConsumerBaseClass):

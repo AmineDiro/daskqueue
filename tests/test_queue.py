@@ -1,10 +1,9 @@
 import pytest
 from distributed import Client
-from daskqueue import QueuePool, QueueActor
-
 from distributed.utils_test import gen_cluster
 
-from daskqueue.Queue import Full
+from daskqueue import QueueActor, QueuePool
+from daskqueue.queue.simple_queue import Full
 
 
 @gen_cluster(client=True, cluster_dump_directory=False)

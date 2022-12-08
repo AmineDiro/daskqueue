@@ -1,22 +1,13 @@
 import asyncio
-from typing import List, Tuple
 
-import numpy as np
-from distributed import Client
 from distributed.worker import get_worker
 
-from daskqueue.utils import logger
+from daskqueue.queue.queue_exceptions import Empty, Full
+
+from .base_queue import BaseQueue
 
 
-class Empty(Exception):
-    pass
-
-
-class Full(Exception):
-    pass
-
-
-class QueueActor:
+class QueueActor(BaseQueue):
     def __init__(self, maxsize=-1):
         # If maxsize is less than or equal to zero, the queue size is infinite
         self.maxsize = maxsize

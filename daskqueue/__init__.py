@@ -1,10 +1,9 @@
-from .ActorPool import ActorPool
-from .Protocol import Message
-from .Consumer import ConsumerBaseClass, DummyConsumer, GeneralConsumer
-from .Queue import QueueActor
-from .QueuePool import *
-from .ConsumerPool import ConsumerPool
-
 from . import _version
+from .ActorPool import ActorPool
+from .Consumer import ConsumerBaseClass, DummyConsumer, GeneralConsumer
+from .ConsumerPool import ConsumerPool
+from .Protocol import Message
+from .queue.simple_queue import QueueActor
+from .QueuePool import *
 
 __version__ = _version.get_versions()["version"]

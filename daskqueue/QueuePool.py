@@ -1,13 +1,9 @@
 import asyncio
 import functools
 import itertools
-from ast import Call
-from dataclasses import dataclass
-import time
 from typing import Any, Callable, Dict, List, Tuple, TypeVar, Union
 
 import numpy as np
-from distributed import Client, worker_client
 from distributed.worker import get_client
 
 from daskqueue.utils import logger
@@ -15,7 +11,7 @@ from daskqueue.utils.funcs import msg_grouper
 
 from .Consumer import ConsumerBaseClass, GeneralConsumer
 from .Protocol import Message
-from .Queue import Full, QueueActor
+from .queue.simple_queue import QueueActor
 
 TConsumer = TypeVar("TConsumer", bound=ConsumerBaseClass)
 

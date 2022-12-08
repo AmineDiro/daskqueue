@@ -4,12 +4,13 @@
 NOTE : Under heavy development !
 """
 
-from typing import Any, Callable, List
-from distributed import wait
-
 # from actors.dask_actors import QueueActor
 import asyncio
-from .Queue import QueueActor
+from typing import Any, Callable, List
+
+from distributed import wait
+
+from .queue.simple_queue import QueueActor
 
 
 class ActorPool:

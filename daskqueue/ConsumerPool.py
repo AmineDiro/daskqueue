@@ -1,12 +1,14 @@
+import itertools
 import os
 import time
 from typing import TypeVar
-import itertools
-from distributed import Actor, Client, LocalCluster
 
-from daskqueue import ConsumerBaseClass, QueuePoolActor, GeneralConsumer
-from daskqueue.QueuePool import QueuePool
+from distributed import Client
+
+from daskqueue import ConsumerBaseClass, GeneralConsumer
 from daskqueue.utils import logger
+
+from .QueuePool import QueuePool
 
 TConsumer = TypeVar("TConsumer", bound=ConsumerBaseClass)
 

@@ -10,7 +10,7 @@ from typing import Any, Callable, List
 
 from distributed import wait
 
-from .queue.simple_queue import QueueActor
+from .queue.transient_queue import QueueActor
 
 
 class ActorPool:

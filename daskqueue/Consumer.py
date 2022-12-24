@@ -129,6 +129,5 @@ class GeneralConsumer(ConsumerBaseClass):
 
     def process_item(self, msg: Message) -> None:
         logger.debug(f"[{self.name}] Processing item : {msg}")
-        args, kwargs = msg._data
-        result = msg.func(*args, **kwargs)
+        result = msg.data()
         self.save(msg, result)

@@ -11,7 +11,7 @@ from daskqueue.utils.funcs import msg_grouper
 
 from .Consumer import ConsumerBaseClass, GeneralConsumer
 from .Protocol import Message
-from .queue.simple_queue import QueueActor
+from .queue.transient_queue import QueueActor
 
 TConsumer = TypeVar("TConsumer", bound=ConsumerBaseClass)
 

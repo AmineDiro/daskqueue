@@ -49,4 +49,3 @@ Example :
 ## Indices:
 - Offset index : Index on msg offset in a specific segment : can be hashtable because msg ids are random uuids ie no order needed
 - Timestamp index :  Index on timestamps to find specific msg : should be implemented as a binary search tree
--

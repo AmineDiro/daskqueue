@@ -3,7 +3,7 @@ from distributed import Client
 from distributed.utils_test import gen_cluster
 
 from daskqueue import QueueActor, QueuePool
-from daskqueue.queue.simple_queue import Full
+from daskqueue.queue.transient_queue import Full
 
 
 @gen_cluster(client=True, cluster_dump_directory=False)

@@ -21,6 +21,8 @@ class LogAccess(Enum):
 class LogSegment:
     # TODO : construct a header
     _FORMAT_VERSION = (0, 1)
+    _FILE_IDENTIFIER = b"\x53\x34\x4e\x40"
+    _FOOTER = b"\x52\x3f\x4a\x43"
 
     def __init__(self, path: str, status: LogAccess, max_bytes: int):
         self.path = path
@@ -34,38 +36,58 @@ class LogSegment:
         self._mm_obj = self.mmap_segment(status)
 
     def create_or_open(self, path):
-        if not os.path.exists(self.path):
+        # File Structure :
+        # <FILE_IDENTIFIER - 4 bytes ><Blocks>...
+        # Where each block has the following structure:
+        # <FORMAT_VERSION><N Bytes>
+        if not os.path.exists(path):
             with open(self.path, "wb") as f:
-                f.write(self.max_bytes * b"\0")
+                f.write(self._FILE_IDENTIFIER)
+                f.write((self.max_bytes - 4) * b"\0")
             f = open(self.path, "r+b", 0)
         else:
             f = open(self.path, "r+b", 0)
+            self.check_file(f)
         return f
+
+    def check_file(self, file):
+        header = file.read(len(self._FILE_IDENTIFIER))
+        if header != self._FILE_IDENTIFIER:
+            file.close()
+            raise Exception("The file is not the compatible with daskqueue logsegment.")
 
     def mmap_segment(self, status):
         if status == LogAccess.RW:
             mm_obj = mmap.mmap(self.file.fileno(), 0)
-            # TODO: Check if this makes sense
             mm_obj.madvise(mmap.MADV_SEQUENTIAL)
+
+            # Seek to the latest write positon
+            last_write = mm_obj.rfind(self._FOOTER)
+            if last_write > 0:
+                self.w_cursor = last_write
+                mm_obj.seek(self.w_cursor)
+            else:
+                # Move the the header
+                self.w_cursor = 4
+                mm_obj.seek(4)
             return mm_obj
 
-    def _write_header(self):
-        return self._mm_obj.write(struct.pack("!HH", *self._FORMAT_VERSION))
+    def _pack_buffer(self, buffer):
+        header = struct.pack("!HH", *self._FORMAT_VERSION)
+        return header + buffer + self._FOOTER
 
-    def append(self, buffer: bytes) -> int:
+    def append(self, buffer: bytes) -> Tuple[int, int]:
         if self.status != LogAccess.RW:
             raise Exception("Can't append to a closed segment")
 
         offset = self._mm_obj.tell()
-        nbytes_header = self._write_header()
-        nbytes_payload = self._mm_obj.write(buffer)
-
-        size = nbytes_payload + nbytes_header
+        packed_buffer = self._pack_buffer(buffer)
+        n_bytes = self._mm_obj.write(packed_buffer)
 
         # Update write cursor
-        self.w_cursor += size
+        self.w_cursor += n_bytes
 
-        return (offset, size)
+        return (offset, n_bytes)
 
     @property
     def closed(self) -> bool:

@@ -2,6 +2,7 @@ import asyncio
 import glob
 import mmap
 import os
+import struct
 from enum import Enum, auto
 from typing import Any, List, Optional, Tuple
 
@@ -18,11 +19,14 @@ class LogAccess(Enum):
 
 
 class LogSegment:
+    # TODO : construct a header
+    _FORMAT_VERSION = (0, 1)
+
     def __init__(self, path: str, status: LogAccess, max_bytes: int):
         self.path = path
         self.status = status
         self.max_bytes = max_bytes
-        self.cursor = 0
+        self.w_cursor = 0
         self.offset_range = ()
 
         self.name = self.parse_name(path)
@@ -41,17 +45,27 @@ class LogSegment:
     def mmap_segment(self, status):
         if status == LogAccess.RW:
             mm_obj = mmap.mmap(self.file.fileno(), 0)
-            # TODO: Read about this
+            # TODO: Check if this makes sense
             mm_obj.madvise(mmap.MADV_SEQUENTIAL)
             return mm_obj
+
+    def _write_header(self):
+        return self._mm_obj.write(struct.pack("!HH", *self._FORMAT_VERSION))
 
     def append(self, buffer: bytes) -> int:
         if self.status != LogAccess.RW:
             raise Exception("Can't append to a closed segment")
-        nbytes = self._mm_obj.write(buffer)
-        old_cursor = self.cursor
-        self.cursor += nbytes
-        return (old_cursor, self.cursor)
+
+        offset = self._mm_obj.tell()
+        nbytes_header = self._write_header()
+        nbytes_payload = self._mm_obj.write(buffer)
+
+        size = nbytes_payload + nbytes_header
+
+        # Update write cursor
+        self.w_cursor += size
+
+        return (offset, size)
 
     @property
     def closed(self) -> bool:
@@ -64,12 +78,11 @@ class LogSegment:
         self.file.close()
         self.status = LogAccess.RO
 
-        self.path = self.rename_segment(self)
-
-        return self.cursor
+        self.path = self.rename_segment()
+        return self.w_cursor
 
     def rename_segment(self):
-        self.name = str(self.cursor).rjust(20, "0") + ".log"
+        self.name = str(self.w_cursor).rjust(20, "0") + ".log"
         dirpath = os.path.dirname(self.path)
         offset_path = os.path.join(dirpath, self.name)
         os.rename(self.path, offset_path)
@@ -124,9 +137,9 @@ class DurableQueue(BaseQueue):
         if not os.path.exists(queue_dir):
             os.makedirs(queue_dir)
 
-        self.ro_seg, self.active_seg = self.get_segments(queue_dir)
+        self.ro_seg, self.active_seg = self._load_segments(queue_dir)
 
-    def get_segments(path: str) -> Tuple[List[LogSegment], LogSegment]:
+    def _load_segments(path: str) -> Tuple[List[LogSegment], LogSegment]:
         segments = glob.glob(path + "/*.log")
         if segments:
             segments.sort()

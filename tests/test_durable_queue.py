@@ -1,4 +1,5 @@
 import logging
+import os
 import time
 from re import I
 
@@ -20,38 +21,43 @@ from daskqueue.queue.durable_queue import DurableQueue, LogAccess, LogSegment
 # seg = LogSegment(seg_path, LogAccess.RW, 1024)
 
 
+@pytest.fixture
+def seg(tmp_path):
+    seg_name = str(0).rjust(20, "0") + ".log"
+    seg_path = tmp_path / seg_name
+
+    seg = LogSegment(seg_path, LogAccess.RW, 1024)
+    return seg
+
+
 def test_logsegment(tmp_path):
     seg_name = str(0).rjust(20, "0") + ".log"
     seg_path = tmp_path / seg_name
 
     seg = LogSegment(seg_path, LogAccess.RW, 1024)
     assert seg._mm_obj.closed == False
-    assert seg.cursor == 0
+    assert seg.w_cursor == 0
 
     seg_name = str(1).rjust(20, "0") + ".log"
     seg_path = tmp_path / seg_name
 
     seg = LogSegment(seg_path, LogAccess.RO, 1024)
     assert seg._mm_obj is None
-    assert seg.cursor == 0
+    assert seg.w_cursor == 0
 
 
-def test_logsegment_append(tmp_path):
-    seg_name = str(0).rjust(20, "0") + ".log"
-    seg_path = tmp_path / seg_name
-    seg = LogSegment(seg_path, LogAccess.RW, 1024)
+def test_logsegment_append(seg):
 
-    seg.append(b"12")
-    seg.append(b"12")
-    assert seg.cursor == 4
+    _, size1 = seg.append(b"12")
+    _, size2 = seg.append(b"12")
+    assert seg.w_cursor == size1 + size2
 
-    seg.append(1024 * b"1")
+    with pytest.raises(ValueError) as e_info:
+        seg.append(1024 * b"1")
 
 
-def test_logsegment_close(tmp_path):
-    seg_name = str(0).rjust(20, "0") + ".log"
-    seg_path = tmp_path / seg_name
-
-    seg = LogSegment(seg_path, LogAccess.RW, 1024)
+def test_logsegment_close(seg):
+    _, w_size = seg.append(b"12")
+    seg.close()
     assert seg.closed
-    assert seg.path == tmp_path / str(2).rjust(20, "0") + ".log"
+    assert os.path.basename(seg.path) == str(w_size).rjust(20, "0") + ".log"

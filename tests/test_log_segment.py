@@ -6,15 +6,13 @@ from re import I
 
 import pytest
 
-from daskqueue.Protocol import Message
-
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s,%(msecs)d %(levelname)s: %(message)s",
     datefmt="%H:%M:%S",
 )
 
-from daskqueue.queue.durable_queue import DurableQueue, LogAccess, LogSegment
+from daskqueue.segment.log import LogAccess, LogSegment
 
 # FIxture
 # seg_name = str(0).rjust(20, "0") + ".log"

@@ -8,8 +8,9 @@ from daskqueue.Protocol import Message
 from daskqueue.segment import _FOOTER
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class RecordOffset:
+    __slots__ = ["file_no", "offset", "size"]
     file_no: int
     offset: int
     size: int

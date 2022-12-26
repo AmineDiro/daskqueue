@@ -6,8 +6,8 @@ from typing import Any, List, Optional, Tuple
 from distributed.worker import get_worker
 
 from daskqueue.Protocol import Message
-from daskqueue.segment.index import LogIndex
-from daskqueue.segment.log import LogAccess, LogSegment
+from daskqueue.segment.index_segment import IndexSegment
+from daskqueue.segment.log_segment import LogAccess, LogSegment
 
 from .base_queue import BaseQueue, Durability
 
@@ -36,7 +36,7 @@ class DurableQueue(BaseQueue):
 
         self.ro_segments: List[LogSegment] = []
         self.active_segment: LogSegment = None
-        self.segment_index: LogIndex = None
+        self.segment_index: IndexSegment = None
 
         # TODO(@Amine) : Parse the storage
         self.setup_storage()
@@ -60,10 +60,10 @@ class DurableQueue(BaseQueue):
         self.ro_segments, self.active_segment = self._load_segments(queue_dir)
         self.segment_index = self._load_index(queue_dir)
 
-    def _load_index(self, path: str) -> LogIndex:
+    def _load_index(self, path: str) -> IndexSegment:
         name = str(self.name).rjust(10, "0") + ".index"
         index_path = os.path.join(path, name)
-        return LogIndex(index_path)
+        return IndexSegment(index_path)
 
     def _load_segments(path: str) -> Tuple[List[LogSegment], LogSegment]:
         segments = glob.glob(path + "/*.log")

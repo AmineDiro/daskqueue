@@ -83,7 +83,7 @@ class LogSegment:
         # Update write cursor
         self.w_cursor += n_bytes
 
-        return RecordOffset(self.path, offset, n_bytes)
+        return RecordOffset(file_no=int(self.name), offset=offset, size=n_bytes)
 
     @property
     def closed(self) -> bool:

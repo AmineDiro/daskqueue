@@ -13,7 +13,7 @@ logging.basicConfig(
 
 from daskqueue.Protocol import Message
 from daskqueue.segment import _FILE_IDENTIFIER, HEADER_SIZE
-from daskqueue.segment.log import LogAccess, LogSegment
+from daskqueue.segment.log_segment import LogAccess, LogSegment
 
 
 @pytest.fixture

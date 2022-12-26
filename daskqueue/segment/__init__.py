@@ -2,7 +2,7 @@ _FORMAT_VERSION = (0, 1)
 
 _FILE_IDENTIFIER = b"\x53\x34\x4e\x40"
 
-_INDEX_FILE_IDENTIFIER = b"\x5f\xe4\x2e\x40"
+_INDEX_FILE_IDENTIFIER = b"\x5f\x44\x31\x40"
 
 _FOOTER = b"\x52\x3f\x4a\x43"
 

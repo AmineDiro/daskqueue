@@ -1,7 +1,6 @@
 import struct
 from binascii import crc32
 from dataclasses import dataclass
-from typing import NamedTuple
 
 import cloudpickle
 
@@ -9,10 +8,14 @@ from daskqueue.Protocol import Message
 from daskqueue.segment import _FOOTER
 
 
-class RecordOffset(NamedTuple):
-    file: str
+@dataclass(frozen=True, slots=True)
+class RecordOffset:
+    file_no: int
     offset: int
     size: int
+
+    def pack(self):
+        return struct.pack("!III", self.file_no, self.offset, self.size)
 
 
 @dataclass(frozen=True)

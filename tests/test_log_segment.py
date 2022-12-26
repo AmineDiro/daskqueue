@@ -1,7 +1,6 @@
 import logging
 import os
 import struct
-import time
 from re import I
 
 import pytest
@@ -13,7 +12,7 @@ logging.basicConfig(
 )
 
 from daskqueue.Protocol import Message
-from daskqueue.segment import _FILE_IDENTIFIER, _FOOTER, _FORMAT_VERSION, HEADER_SIZE
+from daskqueue.segment import _FILE_IDENTIFIER, HEADER_SIZE
 from daskqueue.segment.log import LogAccess, LogSegment
 
 

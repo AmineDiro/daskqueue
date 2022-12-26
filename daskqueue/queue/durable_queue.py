@@ -6,6 +6,7 @@ from typing import Any, List, Optional, Tuple
 from distributed.worker import get_worker
 
 from daskqueue.Protocol import Message
+from daskqueue.segment.index import LogIndex
 from daskqueue.segment.log import LogAccess, LogSegment
 
 from .base_queue import BaseQueue, Durability
@@ -33,8 +34,12 @@ class DurableQueue(BaseQueue):
         self.worker_loop = asyncio.new_event_loop()  # self._io_loop
         asyncio.set_event_loop(self.worker_loop)
 
-        self.segments: List[LogSegment] = []
+        self.ro_segments: List[LogSegment] = []
         self.active_segment: LogSegment = None
+        self.segment_index: LogIndex = None
+
+        # TODO(@Amine) : Parse the storage
+        self.setup_storage()
 
         super().__init__(durability=Durability.DURABLE, maxsize=self.maxsize)
 
@@ -52,7 +57,13 @@ class DurableQueue(BaseQueue):
         if not os.path.exists(queue_dir):
             os.makedirs(queue_dir)
 
-        self.ro_seg, self.active_seg = self._load_segments(queue_dir)
+        self.ro_segments, self.active_segment = self._load_segments(queue_dir)
+        self.segment_index = self._load_index(queue_dir)
+
+    def _load_index(self, path: str) -> LogIndex:
+        name = str(self.name).rjust(10, "0") + ".index"
+        index_path = os.path.join(path, name)
+        return LogIndex(index_path)
 
     def _load_segments(path: str) -> Tuple[List[LogSegment], LogSegment]:
         segments = glob.glob(path + "/*.log")
@@ -67,6 +78,18 @@ class DurableQueue(BaseQueue):
             seg_name = str(0).rjust(20, "0") + ".log"
             seg_path = os.join(path, seg_name)
             return [], LogSegment(seg_path, LogAccess.RW)
+
+    def put_sync(self, item: Message, timeout=None):
+        # Append to Active Segment
+        # Add to Log Index
+        # Append to the dequeue
+        pass
+
+    def get_sync(self, timeout=None):
+        # Pop item from dequeue
+        #
+
+        pass
 
     async def put(self, item: Message, timeout=None):
         pass

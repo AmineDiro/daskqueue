@@ -1,8 +1,7 @@
 import struct
 from binascii import crc32
 from dataclasses import dataclass
-from typing import Tuple
-from uuid import UUID
+from typing import NamedTuple
 
 import cloudpickle
 
@@ -10,12 +9,16 @@ from daskqueue.Protocol import Message
 from daskqueue.segment import _FOOTER
 
 
+class RecordOffset(NamedTuple):
+    file: str
+    offset: int
+    size: int
+
+
 @dataclass(frozen=True)
 class Record:
     checksum: int
-    msg_id_size: int
     msg_size: int
-    msg_id: UUID
     msg: Message
     footer: bytes
 
@@ -27,17 +30,13 @@ class RecordProcessor:
         s = 0
         checksum = struct.unpack("!I", buffer[:4])[0]
         s += 4
-        msgid_size, msg_size = struct.unpack("!ii", buffer[s : s + 8])
-        s += 8
-        msg_id = UUID(buffer[s : s + msgid_size].decode())
-        s += msgid_size
+        msg_size = struct.unpack("!i", buffer[s : s + 4])[0]
+        s += 4
         msg = cloudpickle.loads(buffer[s : s + msg_size])
 
         record = Record(
             checksum=checksum,
-            msg_id_size=msgid_size,
             msg_size=msg_size,
-            msg_id=msg_id,
             msg=msg,
             footer=footer,
         )
@@ -54,12 +53,11 @@ class RecordProcessor:
         return crc32(checksum_data) & 0xFFFFFFFF == retrieved_checksum
 
     def create_record(self, msg: Message):
-        msg_uuid = str(msg.id).encode()
         msg_bytes = msg.serialize()
-        record_size = struct.pack("!ii", len(msg_uuid), len(msg_bytes))
+        record_size = struct.pack("!i", len(msg_bytes))
 
-        # CRC covers : checksum(<MSGID_SIZE><MSG_SIZE><MSG_IG><MSG>)
-        data = record_size + msg_uuid + msg_bytes
+        # CRC covers : checksum(<MSG_SIZE><MSG>)
+        data = record_size + msg_bytes
         checksum = struct.pack("!I", crc32(data) & 0xFFFFFFFF)
         blob = checksum + data + _FOOTER
         return blob

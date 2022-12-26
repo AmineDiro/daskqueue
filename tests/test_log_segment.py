@@ -67,9 +67,9 @@ def test_check_segfile(tmpdir):
 
 
 def test_logsegment_append(log_segment, msg):
-    offset1, size1 = log_segment.append(msg)
+    offset = log_segment.append(msg)
 
-    assert log_segment.w_cursor == HEADER_SIZE + size1
+    assert log_segment.w_cursor == HEADER_SIZE + offset.size
 
     # Can't write
     with pytest.raises(ValueError) as e_info:
@@ -78,21 +78,20 @@ def test_logsegment_append(log_segment, msg):
     log_segment.close()
 
     with open(log_segment.path, "r+b") as f:
-        f.seek(offset1)
-        blob = f.read(size1)
+        f.seek(offset.offset)
+        blob = f.read(offset.size)
         record = log_segment.rec_processor.parse_bytes(blob)
-        assert hash(msg.id) == hash(record.msg_id)
         assert msg.data() == record.msg.data()
         assert msg.timestamp == record.msg.timestamp
 
 
 def test_logsegment_close(log_segment, msg):
-    offset, w_size = log_segment.append(msg)
+    offset = log_segment.append(msg)
     log_segment.close()
     assert log_segment.closed
     assert (
         os.path.basename(log_segment.path)
-        == str(offset + w_size).rjust(20, "0") + ".log"
+        == str(offset.offset + offset.size).rjust(20, "0") + ".log"
     )
 
 
@@ -100,11 +99,11 @@ def test_logseg_reopen(tmpdir, msg):
     p = tmpdir.join("0000.log")
 
     log_segment = LogSegment(p, LogAccess.RW, 1024)
-    offset, size = log_segment.append(msg)
+    offset = log_segment.append(msg)
     log_segment.close()
 
     assert log_segment.closed
 
     log_segment = LogSegment(p, LogAccess.RW, 1024)
 
-    assert log_segment.w_cursor == offset
+    assert log_segment.w_cursor == offset.offset

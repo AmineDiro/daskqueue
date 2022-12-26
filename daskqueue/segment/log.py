@@ -2,12 +2,11 @@ import mmap
 import os
 import struct
 from enum import Enum, auto
-from typing import Tuple
 
 from daskqueue.Protocol import Message
 from daskqueue.segment import _FILE_IDENTIFIER, _FOOTER, _FORMAT_VERSION, HEADER_SIZE
 
-from .record import Record, RecordProcessor
+from .log_record import RecordOffset, RecordProcessor
 
 
 class LogAccess(Enum):
@@ -73,7 +72,7 @@ class LogSegment:
                 mm_obj.seek(8)
             return mm_obj
 
-    def append(self, msg: Message) -> Tuple[int, int]:
+    def append(self, msg: Message) -> RecordOffset:
         if self.status != LogAccess.RW:
             raise Exception("Can't append to a closed segment")
 
@@ -84,7 +83,7 @@ class LogSegment:
         # Update write cursor
         self.w_cursor += n_bytes
 
-        return (offset, n_bytes)
+        return RecordOffset(self.path, offset, n_bytes)
 
     @property
     def closed(self) -> bool:

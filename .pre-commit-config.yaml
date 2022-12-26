@@ -36,6 +36,7 @@ repos:
     language: system
     entry: isort
     types: [python]
+    args: ["--filter-files","--profile","black"]
 
   - id: black
     name: black

@@ -24,5 +24,5 @@ class Message:
     def __str__(self) -> str:
         return f"Message {self.id.int}"  #: \n\t\tfunction = {self.func.__name__} \n\t\targs={self._data[0]} \n\t\tkwargs={self._data[1]} "
 
-    def serialize(self) -> io.BytesIO:
+    def serialize(self) -> bytes:
         return cloudpickle.dumps(self)

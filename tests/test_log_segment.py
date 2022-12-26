@@ -12,12 +12,16 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 
+from daskqueue.Protocol import Message
+from daskqueue.segment import _FILE_IDENTIFIER, _FOOTER, _FORMAT_VERSION, HEADER_SIZE
 from daskqueue.segment.log import LogAccess, LogSegment
 
-# FIxture
-# seg_name = str(0).rjust(20, "0") + ".log"
-# seg_path = tmp_path / seg_name
-# seg = LogSegment(seg_path, LogAccess.RW, 1024)
+
+@pytest.fixture
+def msg():
+    func = lambda x: x + 2
+    msg = Message(func, 12)
+    return msg
 
 
 @pytest.fixture
@@ -35,7 +39,8 @@ def test_logsegment(tmp_path):
 
     seg = LogSegment(seg_path, LogAccess.RW, 1024)
     assert seg._mm_obj.closed == False
-    assert seg.w_cursor == 4
+    assert seg.w_cursor == 8
+    assert seg._mm_obj.tell() == 8
 
     seg_name = str(1).rjust(20, "0") + ".log"
     seg_path = tmp_path / seg_name
@@ -53,32 +58,37 @@ def test_check_segfile(tmpdir):
         seg = LogSegment(p, LogAccess.RW, 1024)
 
     p = tmpdir.join("good.log")
-    p.write(LogSegment._FILE_IDENTIFIER)
+
+    _FORMAT_VERSION = (0, 1)
+    p.write(struct.pack("!HH", *_FORMAT_VERSION) + _FILE_IDENTIFIER)
 
     seg = LogSegment(p, LogAccess.RW, 1024)
-    assert seg._mm_obj.tell() == 4
+    assert seg._mm_obj.tell() == 8
+    assert seg.w_cursor == 8
 
 
-def test_logsegment_append(log_segment):
-    header = struct.pack("!HH", *log_segment._FORMAT_VERSION)
-    offset1, size1 = log_segment.append(b"12")
-    _, size2 = log_segment.append(b"12")
-    assert log_segment.w_cursor == len(log_segment._FILE_IDENTIFIER) + size1 + size2
+def test_logsegment_append(log_segment, msg):
+    offset1, size1 = log_segment.append(msg)
 
+    assert log_segment.w_cursor == HEADER_SIZE + size1
+
+    # Can't write
     with pytest.raises(ValueError) as e_info:
-        log_segment.append(1024 * b"1")
+        [log_segment.append(msg) for _ in range(1000)]
 
     log_segment.close()
 
     with open(log_segment.path, "r+b") as f:
         f.seek(offset1)
-        assert header == f.read(len(header))
-        assert b"12" == f.read(2)
-        assert log_segment._FOOTER == f.read(len(log_segment._FOOTER))
+        blob = f.read(size1)
+        record = log_segment.rec_processor.parse_bytes(blob)
+        assert hash(msg.id) == hash(record.msg_id)
+        assert msg.data() == record.msg.data()
+        assert msg.timestamp == record.msg.timestamp
 
 
-def test_logsegment_close(log_segment):
-    offset, w_size = log_segment.append(b"12")
+def test_logsegment_close(log_segment, msg):
+    offset, w_size = log_segment.append(msg)
     log_segment.close()
     assert log_segment.closed
     assert (
@@ -87,11 +97,11 @@ def test_logsegment_close(log_segment):
     )
 
 
-def test_logseg_reopen(tmpdir):
+def test_logseg_reopen(tmpdir, msg):
     p = tmpdir.join("0000.log")
 
     log_segment = LogSegment(p, LogAccess.RW, 1024)
-    offset, size = log_segment.append(b"12")
+    offset, size = log_segment.append(msg)
     log_segment.close()
 
     assert log_segment.closed

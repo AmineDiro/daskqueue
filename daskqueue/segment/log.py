@@ -4,6 +4,11 @@ import struct
 from enum import Enum, auto
 from typing import Tuple
 
+from daskqueue.Protocol import Message
+from daskqueue.segment import _FILE_IDENTIFIER, _FOOTER, _FORMAT_VERSION, HEADER_SIZE
+
+from .record import Record, RecordProcessor
+
 
 class LogAccess(Enum):
     RO = auto()  # closed segment
@@ -12,9 +17,6 @@ class LogAccess(Enum):
 
 class LogSegment:
     # TODO : construct a header
-    _FORMAT_VERSION = (0, 1)
-    _FILE_IDENTIFIER = b"\x53\x34\x4e\x40"
-    _FOOTER = b"\x52\x3f\x4a\x43"
 
     def __init__(self, path: str, status: LogAccess, max_bytes: int):
         self.path = path
@@ -24,27 +26,34 @@ class LogSegment:
         self.offset_range = ()
 
         self.name = self.parse_name(path)
+
         self.file = self.create_or_open(path)
         self._mm_obj = self.mmap_segment(status)
 
+        self.rec_processor = RecordProcessor()
+
     def create_or_open(self, path):
         # File Structure :
-        # <FILE_IDENTIFIER - 4 bytes ><Blocks>...
         # Where each block has the following structure:
-        # <FORMAT_VERSION><N Bytes>
         if not os.path.exists(path):
             with open(self.path, "wb") as f:
-                f.write(self._FILE_IDENTIFIER)
-                f.write((self.max_bytes - 4) * b"\0")
+                off = self._write_header(f)
+                f.write((self.max_bytes - off) * b"\0")
             f = open(self.path, "r+b", 0)
         else:
             f = open(self.path, "r+b", 0)
             self.check_file(f)
         return f
 
+    def _write_header(self, file):
+        version_byte = struct.pack("!HH", *_FORMAT_VERSION)
+        return file.write(version_byte + _FILE_IDENTIFIER)
+
     def check_file(self, file):
-        header = file.read(len(self._FILE_IDENTIFIER))
-        if header != self._FILE_IDENTIFIER:
+        header = file.read(HEADER_SIZE)
+        version = struct.unpack("!HH", header[:4])
+        fid = header[4:]
+        if fid != _FILE_IDENTIFIER or version != (0, 1):
             file.close()
             raise Exception("The file is not the compatible with daskqueue logsegment.")
 
@@ -54,27 +63,23 @@ class LogSegment:
             mm_obj.madvise(mmap.MADV_SEQUENTIAL)
 
             # Seek to the latest write positon
-            last_write = mm_obj.rfind(self._FOOTER)
+            last_write = mm_obj.rfind(_FOOTER)
             if last_write > 0:
                 self.w_cursor = last_write
                 mm_obj.seek(self.w_cursor)
             else:
                 # Move the the header
-                self.w_cursor = 4
-                mm_obj.seek(4)
+                self.w_cursor = 8
+                mm_obj.seek(8)
             return mm_obj
 
-    def _pack_buffer(self, buffer):
-        header = struct.pack("!HH", *self._FORMAT_VERSION)
-        return header + buffer + self._FOOTER
-
-    def append(self, buffer: bytes) -> Tuple[int, int]:
+    def append(self, msg: Message) -> Tuple[int, int]:
         if self.status != LogAccess.RW:
             raise Exception("Can't append to a closed segment")
 
         offset = self._mm_obj.tell()
-        packed_buffer = self._pack_buffer(buffer)
-        n_bytes = self._mm_obj.write(packed_buffer)
+        record_bytes = self.rec_processor.create_record(msg)
+        n_bytes = self._mm_obj.write(record_bytes)
 
         # Update write cursor
         self.w_cursor += n_bytes

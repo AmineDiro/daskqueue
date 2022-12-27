@@ -59,7 +59,6 @@ class LogSegment:
     def mmap_segment(self, status):
         if status == LogAccess.RW:
             mm_obj = mmap.mmap(self.file.fileno(), 0)
-            mm_obj.madvise(mmap.MADV_SEQUENTIAL)
 
             # Seek to the latest write positon
             last_write = mm_obj.rfind(_FOOTER)

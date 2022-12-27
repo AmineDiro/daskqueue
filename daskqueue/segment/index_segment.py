@@ -2,6 +2,7 @@ import mmap
 import os
 import struct
 import time
+from collections import defaultdict
 from typing import Dict
 from uuid import UUID
 
@@ -59,14 +60,19 @@ class IndexSegment:
         return mm_obj
 
     def read_index(self) -> Dict[UUID, IdxRecord]:
-        return {}
+        d = defaultdict(lambda: None)
+        return d
 
     def set(self, msg_id: UUID, status: MessageStatus, offset: RecordOffset):
         # Write to disk
-        # Update internal index
         tmstmp = time.time()
         idx_record = IdxRecord(msg_id, status, offset, tmstmp)
         idx_record_bytes = self.processor.create_idx_record(idx_record)
         _ = self._mm_obj.write(idx_record_bytes)
 
-        self.msg_index[msg_id] = (status, offset, tmstmp)
+        # Update internal index
+        self.msg_index[msg_id] = idx_record
+
+    def get(self, msg_id: UUID) -> IdxRecord:
+        # Finds the msg in the index
+        return self.msg_index[msg_id]

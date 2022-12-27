@@ -11,25 +11,8 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 
-from daskqueue.Protocol import Message
 from daskqueue.segment import _FILE_IDENTIFIER, HEADER_SIZE
 from daskqueue.segment.log_segment import LogAccess, LogSegment
-
-
-@pytest.fixture
-def msg():
-    func = lambda x: x + 2
-    msg = Message(func, 12)
-    return msg
-
-
-@pytest.fixture
-def log_segment(tmp_path):
-    seg_name = str(0).rjust(20, "0") + ".log"
-    seg_path = tmp_path / seg_name
-
-    seg = LogSegment(seg_path, LogAccess.RW, 1024)
-    return seg
 
 
 def test_logsegment(tmp_path):

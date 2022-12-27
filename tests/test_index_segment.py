@@ -3,6 +3,7 @@ import struct
 
 import pytest
 
+from daskqueue.Protocol import Message
 from daskqueue.segment.log_record import RecordOffset
 
 logging.basicConfig(
@@ -59,14 +60,17 @@ def test_index_segment_close(index_segment, msg):
     assert index_segment.closed
 
 
-@pytest.mark.skip
-def test_index_segment(tmpdir, msg):
-    p = tmpdir.join("0000.idx")
+def test_index_segment_read(msg, index_segment, log_segment):
+    N = 10
 
-    log_segment = IndexSegment(p)
-    offset = log_segment.append(msg)
-    log_segment.close()
+    func = lambda x: x + 2
+    for _ in range(N):
+        msg = Message(func, 1)
+        offset = log_segment.append(msg)
+        index_segment.set(msg.id, MessageStatus.READY, offset)
 
-    assert log_segment.closed
+    index_segment.close()
+    assert len(index_segment) == N
 
-    log_segment = IndexSegment(p)
+    # idx = IndexSegment(index_segment.path)
+    # assert len(idx) == N

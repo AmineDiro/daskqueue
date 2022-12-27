@@ -23,7 +23,10 @@ class IdxRecord:
 
 
 class IdxRecordProcessor:
+    RECORD_SIZE = 37
+
     def parse_bytes(self, buffer: bytes) -> IdxRecord:
+        assert len(buffer) == self.RECORD_SIZE
         checksum_data = buffer[4:]
         s = 0
         checksum = struct.unpack("!I", buffer[s : s + 4])[0]

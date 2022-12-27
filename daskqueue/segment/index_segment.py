@@ -6,19 +6,24 @@ from collections import defaultdict
 from typing import Dict
 from uuid import UUID
 
-from daskqueue.segment import _FORMAT_VERSION, _INDEX_FILE_IDENTIFIER, HEADER_SIZE
+from daskqueue.segment import (
+    _FORMAT_VERSION,
+    _INDEX_FILE_IDENTIFIER,
+    HEADER_SIZE,
+    MAX_BYTES,
+)
 
 from .index_record import IdxRecord, IdxRecordProcessor, MessageStatus
 from .log_record import RecordOffset
 
 
 class IndexSegment:
-    def __init__(self, path: str, max_bytes: int = 1024):
+    def __init__(self, path: str, max_bytes: int = MAX_BYTES):
         self.path = path
         self.max_bytes = max_bytes
 
         self.processor = IdxRecordProcessor()
-        self.file = self.create_or_open(path)
+        self.created, self.file = self.create_or_open(path)
         self._mm_obj = self.mmap_index_segment()
         self.msg_index = self.read_index()
 
@@ -26,16 +31,19 @@ class IndexSegment:
     def closed(self) -> bool:
         return self._mm_obj.closed
 
+    def __len__(self):
+        return len(self.msg_index)
+
     def create_or_open(self, path):
         if not os.path.exists(path):
             with open(self.path, "wb") as f:
                 off = self._write_header(f)
                 f.write((self.max_bytes - off) * b"\0")
-            f = open(self.path, "r+b", 0)
-        else:
-            f = open(self.path, "r+b", 0)
-            self.check_file(f)
-        return f
+            return True, open(self.path, "r+b", 0)
+
+        f = open(self.path, "r+b", 0)
+        self.check_file(f)
+        return False, f
 
     def close(self):
         self._mm_obj.close()
@@ -56,12 +64,23 @@ class IndexSegment:
 
     def mmap_index_segment(self):
         mm_obj = mmap.mmap(self.file.fileno(), 0)
-        mm_obj.seek(8)
+        mm_obj.seek(HEADER_SIZE)
         return mm_obj
 
     def read_index(self) -> Dict[UUID, IdxRecord]:
         d = defaultdict(lambda: None)
-        return d
+        assert self._mm_obj.tell() == 8
+        cur = 8
+        try:
+            while cur < self.max_bytes:
+                idx_record = self.processor.parse_bytes(
+                    self._mm_obj[cur : cur + self.processor.RECORD_SIZE]
+                )
+                cur += self.processor.RECORD_SIZE
+                d[idx_record.msg_id] = idx_record
+        finally:
+            self._mm_obj.seek(HEADER_SIZE)
+            return d
 
     def set(self, msg_id: UUID, status: MessageStatus, offset: RecordOffset):
         # Write to disk

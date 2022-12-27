@@ -4,6 +4,8 @@ from daskqueue.Protocol import Message
 from daskqueue.segment.index_segment import IndexSegment
 from daskqueue.segment.log_segment import LogAccess, LogSegment
 
+MAX_BYTES = 100 * 1024  # 100KB
+
 
 @pytest.fixture
 def msg():
@@ -17,7 +19,7 @@ def log_segment(tmp_path):
     seg_name = str(0).rjust(20, "0") + ".log"
     seg_path = tmp_path / seg_name
 
-    seg = LogSegment(seg_path, LogAccess.RW, 1024)
+    seg = LogSegment(seg_path, LogAccess.RW, MAX_BYTES)
     return seg
 
 

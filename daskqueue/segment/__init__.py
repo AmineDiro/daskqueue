@@ -7,3 +7,5 @@ _INDEX_FILE_IDENTIFIER = b"\x5f\x44\x31\x40"
 _FOOTER = b"\x52\x3f\x4a\x43"
 
 HEADER_SIZE = 8
+
+MAX_BYTES = 1024 * 1024  # 1MB

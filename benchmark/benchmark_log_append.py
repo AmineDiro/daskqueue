@@ -69,4 +69,4 @@ if __name__ == "__main__":
     w_mbps = np.array(w_mbps)
 
     print(f"Mean write ops [{N_TEST}tests] {w_ops.mean():.2f} wop/s")
-    print(f"Mean write mps [{N_TEST}tests] {w_mbps.mean():.2f} mbp/s")
+    print(f"Mean write mps [{N_TEST}tests] {w_mbps.mean():.2f} mb/s")

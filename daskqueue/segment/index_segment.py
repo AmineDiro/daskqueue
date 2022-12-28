@@ -2,10 +2,13 @@ import mmap
 import os
 import struct
 import time
-from collections import defaultdict
+from collections import OrderedDict
 from typing import Dict
 from uuid import UUID
 
+from sortedcontainers import SortedDict
+
+from daskqueue.Protocol import Message
 from daskqueue.segment import (
     _FORMAT_VERSION,
     _INDEX_FILE_IDENTIFIER,
@@ -25,14 +28,16 @@ class IndexSegment:
         self.processor = IdxRecordProcessor()
         self.created, self.file = self.create_or_open(path)
         self._mm_obj = self.mmap_index_segment()
-        self.msg_index = self.read_index()
+
+        # In-memory Datastructure
+        self.delivered_messages, self.ready_messages = self.load_index()
 
     @property
     def closed(self) -> bool:
         return self._mm_obj.closed
 
     def __len__(self):
-        return len(self.msg_index)
+        return len(self.ready_messages)
 
     def create_or_open(self, path):
         if not os.path.exists(path):
@@ -67,8 +72,9 @@ class IndexSegment:
         mm_obj.seek(HEADER_SIZE)
         return mm_obj
 
-    def read_index(self) -> Dict[UUID, IdxRecord]:
-        d = defaultdict(lambda: None)
+    def load_index(self) -> Dict[UUID, IdxRecord]:
+        delivered = SortedDict()
+        ready = OrderedDict(lambda: None)
         assert self._mm_obj.tell() == 8
         cur = 8
         try:
@@ -77,10 +83,27 @@ class IndexSegment:
                     self._mm_obj[cur : cur + self.processor.RECORD_SIZE]
                 )
                 cur += self.processor.RECORD_SIZE
-                d[idx_record.msg_id] = idx_record
+                self.update_index(ready, idx_record)
         finally:
             self._mm_obj.seek(HEADER_SIZE)
-            return d
+            return delivered, ready
+
+    def update_index(
+        self,
+        delivered: SortedDict[int, IdxRecord],
+        ready: OrderedDict[UUID, IdxRecord],
+        idx_record: IdxRecord,
+    ):
+        if idx_record.status == MessageStatus.READY:
+            ready[idx_record.msg_id] = idx_record
+
+        elif idx_record.status == MessageStatus.DELIVERED:
+            ready.pop(idx_record.msg_id, None)
+            delivered[idx_record.timestamp] = idx_record
+
+        elif idx_record.status == MessageStatus.ACKED:
+            # Shouldn't have an acked message in ready queue
+            delivered.pop(idx_record.timestamp)
 
     def set(self, msg_id: UUID, status: MessageStatus, offset: RecordOffset):
         # Write to disk
@@ -95,3 +118,12 @@ class IndexSegment:
     def get(self, msg_id: UUID) -> IdxRecord:
         # Finds the msg in the index
         return self.msg_index[msg_id]
+
+    def pop() -> Message:
+        pass
+
+    def drop(msg: Message):
+        pass
+
+    def ack(msg: Message):
+        pass

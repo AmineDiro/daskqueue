@@ -12,7 +12,7 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 
-from daskqueue.segment import _FORMAT_VERSION, _INDEX_FILE_IDENTIFIER, HEADER_SIZE
+from daskqueue.segment import FORMAT_VERSION, HEADER_SIZE, INDEX_FILE_IDENTIFIER
 from daskqueue.segment.index_record import IdxRecord, MessageStatus
 from daskqueue.segment.index_segment import IndexSegment
 
@@ -35,7 +35,7 @@ def test_check_index_file(tmpdir):
 
     p = tmpdir.join("good.index")
 
-    p.write(struct.pack("!HH", *_FORMAT_VERSION) + _INDEX_FILE_IDENTIFIER)
+    p.write(struct.pack("!HH", *FORMAT_VERSION) + INDEX_FILE_IDENTIFIER)
 
     seg = IndexSegment(p)
     assert seg._mm_obj.tell() == 8
@@ -47,12 +47,12 @@ def test_index_segment_append(msg, log_segment, index_segment):
     assert log_segment.w_cursor == HEADER_SIZE + offset.size
 
     # Record the msg to index
-    index_segment.set(msg.id, MessageStatus.READY, offset)
-    idx_record: IdxRecord = index_segment.get(msg.id)
+    index_segment.push(msg.id, offset)
+    # idx_record = index_segment.pop(msg.id)
 
-    assert idx_record.msg_id == msg.id
-    assert idx_record.status == MessageStatus.READY
-    assert idx_record.offset.offset == offset.offset
+    assert msg.id in index_segment.ready
+    assert index_segment.ready[msg.id].offset.offset == offset.offset
+    assert index_segment.ready[msg.id].offset.size == offset.size
 
 
 def test_index_segment_close(index_segment, msg):

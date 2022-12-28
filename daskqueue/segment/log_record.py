@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import cloudpickle
 
 from daskqueue.Protocol import Message
-from daskqueue.segment import _FOOTER
+from daskqueue.segment import FOOTER
 
 
 @dataclass(frozen=True)
@@ -45,9 +45,7 @@ class RecordProcessor:
             footer=footer,
         )
 
-        if not (footer == _FOOTER) or not self._verify_checksum(
-            checksum, checksum_data
-        ):
+        if not (footer == FOOTER) or not self._verify_checksum(checksum, checksum_data):
             raise Exception("Corrupt data detected: invalid checksum")
 
         return record
@@ -63,5 +61,5 @@ class RecordProcessor:
         # CRC covers : checksum(<MSG_SIZE><MSG>)
         data = record_size + msg_bytes
         checksum = struct.pack("!I", crc32(data) & 0xFFFFFFFF)
-        blob = checksum + data + _FOOTER
+        blob = checksum + data + FOOTER
         return blob

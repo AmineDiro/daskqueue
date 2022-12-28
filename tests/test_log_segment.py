@@ -11,8 +11,8 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 
-from daskqueue.segment import _FILE_IDENTIFIER, HEADER_SIZE
-from daskqueue.segment.log_segment import LogAccess, LogSegment
+from daskqueue.segment import FILE_IDENTIFIER, HEADER_SIZE
+from daskqueue.segment.log_segment import FullSegment, LogAccess, LogSegment
 
 
 def test_logsegment(tmp_path):
@@ -42,7 +42,7 @@ def test_check_segfile(tmpdir):
     p = tmpdir.join("good.log")
 
     _FORMAT_VERSION = (0, 1)
-    p.write(struct.pack("!HH", *_FORMAT_VERSION) + _FILE_IDENTIFIER)
+    p.write(struct.pack("!HH", *_FORMAT_VERSION) + FILE_IDENTIFIER)
 
     seg = LogSegment(p, LogAccess.RW, 1024)
     assert seg._mm_obj.tell() == 8
@@ -55,7 +55,7 @@ def test_logsegment_append(log_segment, msg):
     assert log_segment.w_cursor == HEADER_SIZE + offset.size
 
     # Can't write
-    with pytest.raises(ValueError) as e_info:
+    with pytest.raises(FullSegment) as e_info:
         [log_segment.append(msg) for _ in range(1000)]
 
     log_segment.close()

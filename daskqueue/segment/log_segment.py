@@ -4,9 +4,19 @@ import struct
 from enum import Enum, auto
 
 from daskqueue.Protocol import Message
-from daskqueue.segment import _FILE_IDENTIFIER, _FOOTER, _FORMAT_VERSION, HEADER_SIZE
+from daskqueue.segment import (
+    FILE_IDENTIFIER,
+    FOOTER,
+    FORMAT_VERSION,
+    HEADER_SIZE,
+    MAX_BYTES,
+)
 
 from .log_record import RecordOffset, RecordProcessor
+
+
+class FullSegment(Exception):
+    pass
 
 
 class LogAccess(Enum):
@@ -17,7 +27,7 @@ class LogAccess(Enum):
 class LogSegment:
     # TODO : construct a header
 
-    def __init__(self, path: str, status: LogAccess, max_bytes: int):
+    def __init__(self, path: str, status: LogAccess, max_bytes: int = MAX_BYTES):
         self.path = path
         self.status = status
         self.max_bytes = max_bytes
@@ -45,14 +55,14 @@ class LogSegment:
         return f
 
     def _write_header(self, file):
-        version_byte = struct.pack("!HH", *_FORMAT_VERSION)
-        return file.write(version_byte + _FILE_IDENTIFIER)
+        version_byte = struct.pack("!HH", *FORMAT_VERSION)
+        return file.write(version_byte + FILE_IDENTIFIER)
 
     def check_file(self, file):
         header = file.read(HEADER_SIZE)
         version = struct.unpack("!HH", header[:4])
         fid = header[4:]
-        if fid != _FILE_IDENTIFIER or version != (0, 1):
+        if fid != FILE_IDENTIFIER or version != (0, 1):
             file.close()
             raise Exception("The file is not the compatible with daskqueue logsegment.")
 
@@ -61,7 +71,7 @@ class LogSegment:
             mm_obj = mmap.mmap(self.file.fileno(), 0)
 
             # Seek to the latest write positon
-            last_write = mm_obj.rfind(_FOOTER)
+            last_write = mm_obj.rfind(FOOTER)
             if last_write > 0:
                 self.w_cursor = last_write
                 mm_obj.seek(self.w_cursor)
@@ -75,14 +85,17 @@ class LogSegment:
         if self.status != LogAccess.RW:
             raise Exception("Can't append to a closed segment")
 
-        offset = self._mm_obj.tell()
-        record_bytes = self.rec_processor.create_record(msg)
-        n_bytes = self._mm_obj.write(record_bytes)
+        try:
+            offset = self._mm_obj.tell()
+            record_bytes = self.rec_processor.create_record(msg)
+            n_bytes = self._mm_obj.write(record_bytes)
 
-        # Update write cursor
-        self.w_cursor += n_bytes
+            # Update write cursor
+            self.w_cursor += n_bytes
+            return RecordOffset(file_no=int(self.name), offset=offset, size=n_bytes)
 
-        return RecordOffset(file_no=int(self.name), offset=offset, size=n_bytes)
+        except ValueError:
+            raise FullSegment("The log segment is full")
 
     @property
     def closed(self) -> bool:

@@ -7,7 +7,7 @@ from distributed.worker import get_worker
 
 from daskqueue.Protocol import Message
 from daskqueue.segment.index_segment import IndexSegment
-from daskqueue.segment.log_segment import LogAccess, LogSegment
+from daskqueue.segment.log_segment import FullSegment, LogAccess, LogSegment
 
 from .base_queue import BaseQueue, Durability
 
@@ -19,13 +19,12 @@ class DurableQueue(BaseQueue):
         dirpath: str,
         exchange: str = "default",
         maxsize: Optional[int] = None,
-        max_bytes: int = 1024,
     ):
         self.name = name
         self.dirpath = dirpath
-        # If maxsize is less than or equal to zero, the queue size is infinite
+
+        # If maxsize is None, the queue size is infinite
         self.maxsize = maxsize
-        self.max_bytes = max_bytes
 
         # NOTE: A queue handles message from one exchange
         self.exchange = exchange
@@ -36,7 +35,7 @@ class DurableQueue(BaseQueue):
 
         self.ro_segments: List[LogSegment] = []
         self.active_segment: LogSegment = None
-        self.segment_index: IndexSegment = None
+        self.message_index: IndexSegment = None
 
         # TODO(@Amine) : Parse the storage
         self.setup_storage()
@@ -58,7 +57,7 @@ class DurableQueue(BaseQueue):
             os.makedirs(queue_dir)
 
         self.ro_segments, self.active_segment = self._load_segments(queue_dir)
-        self.segment_index = self._load_index(queue_dir)
+        self.message_index = self._load_index(queue_dir)
 
     def _load_index(self, path: str) -> IndexSegment:
         name = str(self.name).rjust(10, "0") + ".index"
@@ -79,13 +78,26 @@ class DurableQueue(BaseQueue):
             seg_path = os.join(path, seg_name)
             return [], LogSegment(seg_path, LogAccess.RW)
 
-    def put_sync(self, item: Message, timeout=None):
-        # Append to Active Segment
-        # Add to Log Index
-        # Append to the dequeue
-        pass
+    def new_active_segment(self):
+        self.active_segment.close()
+        file_no = int(self.active_segment.name) + 1
+        seg_name = str(file_no).rjust(20, "0") + ".log"
+        seg_path = os.join(self.dirpath, seg_name)
+        return LogSegment(seg_path, LogAccess.RW)
 
-    def get_sync(self, timeout=None):
+    def put_sync(self, item: Message):
+        # Append to Active Segment
+        # TODO : Can't retry forever, I should add a wrapper to retrie a number of times
+        try:
+            offset = self.active_segment.append(item)
+        except FullSegment:
+            self.active_segment = self.new_active_segment()
+            self.active_segment.append(item)
+
+        # Add to Log Index
+        self.message_index.push(item.id, offset)
+
+    def get_sync(self) -> Message:
         # Pop item from dequeue
         #
 

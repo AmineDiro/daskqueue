@@ -10,9 +10,9 @@ from sortedcontainers import SortedDict
 
 from daskqueue.Protocol import Message
 from daskqueue.segment import (
-    _FORMAT_VERSION,
-    _INDEX_FILE_IDENTIFIER,
+    FORMAT_VERSION,
     HEADER_SIZE,
+    INDEX_FILE_IDENTIFIER,
     MAX_BYTES,
 )
 
@@ -58,14 +58,14 @@ class IndexSegment:
         return self.closed
 
     def _write_header(self, file):
-        version_byte = struct.pack("!HH", *_FORMAT_VERSION)
-        return file.write(version_byte + _INDEX_FILE_IDENTIFIER)
+        version_byte = struct.pack("!HH", *FORMAT_VERSION)
+        return file.write(version_byte + INDEX_FILE_IDENTIFIER)
 
     def check_file(self, file):
         header = file.read(HEADER_SIZE)
         version = struct.unpack("!HH", header[:4])
         fid = header[4:]
-        if fid != _INDEX_FILE_IDENTIFIER or version != _FORMAT_VERSION:
+        if fid != INDEX_FILE_IDENTIFIER or version != FORMAT_VERSION:
             file.close()
             raise Exception("The file is not a daskqueue index_segment.")
 
@@ -106,7 +106,9 @@ class IndexSegment:
             # Shouldn't have an acked message in ready queue
             self.delivered.pop(idx_record.timestamp)
 
-    def set(self, msg_id: UUID, status: MessageStatus, offset: RecordOffset):
+    def set(
+        self, msg_id: UUID, status: MessageStatus, offset: RecordOffset
+    ) -> IdxRecord:
         # Write to disk .index file
         tmstmp = time.time()
         idx_record = IdxRecord(msg_id, status, offset, tmstmp)
@@ -115,13 +117,14 @@ class IndexSegment:
 
         # Update internal mem index
         self.update_index(idx_record)
+        return idx_record
 
-    def get(self, msg_id: UUID) -> IdxRecord:
-        # Finds the msg in the index
-        return self.ready[msg_id]
+    def push(self, msg_id: UUID, offset: RecordOffset):
+        self.set(msg_id, MessageStatus.READY, offset)
 
-    def pop() -> Message:
-        pass
+    def pop(self) -> IdxRecord:
+        idx_record: IdxRecord = self.ready.popitem()
+        return self.set(idx_record.msg_id, MessageStatus.DELIVERED, idx_record.offset)
 
     def drop(msg: Message):
         pass

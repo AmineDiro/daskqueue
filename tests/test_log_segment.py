@@ -28,7 +28,6 @@ def test_logsegment(tmp_path):
     seg_path = tmp_path / seg_name
 
     seg = LogSegment(seg_path, LogAccess.RO, 1024)
-    assert seg._mm_obj is None
     assert seg.w_cursor == 0
 
 
@@ -63,7 +62,7 @@ def test_logsegment_append(log_segment, msg):
     with open(log_segment.path, "r+b") as f:
         f.seek(offset.offset)
         blob = f.read(offset.size)
-        record = log_segment.rec_processor.parse_bytes(blob)
+        record = log_segment.processor.parse_bytes(blob)
         assert msg.data() == record.msg.data()
         assert msg.timestamp == record.msg.timestamp
 
@@ -72,10 +71,6 @@ def test_logsegment_close(log_segment, msg):
     offset = log_segment.append(msg)
     log_segment.close()
     assert log_segment.closed
-    assert (
-        os.path.basename(log_segment.path)
-        == str(offset.offset + offset.size).rjust(20, "0") + ".log"
-    )
 
 
 def test_logseg_reopen(tmpdir, msg):
@@ -89,4 +84,4 @@ def test_logseg_reopen(tmpdir, msg):
 
     log_segment = LogSegment(p, LogAccess.RW, 1024)
 
-    assert log_segment.w_cursor == offset.offset
+    assert log_segment.w_cursor == offset.offset + offset.size

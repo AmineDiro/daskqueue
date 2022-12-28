@@ -24,6 +24,7 @@ class IndexSegment:
     def __init__(self, path: str, max_bytes: int = MAX_BYTES):
         self.path = path
         self.max_bytes = max_bytes
+        self.name = self.parse_name(path)
 
         # In-memory datastructures
         self.delivered = SortedDict()
@@ -119,11 +120,11 @@ class IndexSegment:
         self.update_index(idx_record)
         return idx_record
 
-    def push(self, msg_id: UUID, offset: RecordOffset):
-        self.set(msg_id, MessageStatus.READY, offset)
+    def push(self, msg_id: UUID, offset: RecordOffset) -> IdxRecord:
+        return self.set(msg_id, MessageStatus.READY, offset)
 
     def pop(self) -> IdxRecord:
-        idx_record: IdxRecord = self.ready.popitem()
+        idx_record: IdxRecord = self.ready.popitem()[1]
         return self.set(idx_record.msg_id, MessageStatus.DELIVERED, idx_record.offset)
 
     def drop(msg: Message):
@@ -131,3 +132,7 @@ class IndexSegment:
 
     def ack(msg: Message):
         pass
+
+    def parse_name(self, path):
+        filename = os.path.basename(path)
+        return os.path.splitext(filename)[0]

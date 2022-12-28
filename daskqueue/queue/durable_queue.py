@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from distributed.worker import get_worker
 
 from daskqueue.Protocol import Message
+from daskqueue.segment.index_record import IdxRecord
 from daskqueue.segment.index_segment import IndexSegment
 from daskqueue.segment.log_segment import FullSegment, LogAccess, LogSegment
 
@@ -17,17 +18,18 @@ class DurableQueue(BaseQueue):
         self,
         name: str,
         dirpath: str,
+        durability: Durability = Durability.DURABLE,
         exchange: str = "default",
         maxsize: Optional[int] = None,
     ):
         self.name = name
         self.dirpath = dirpath
+        # NOTE: A queue handles message from one exchange
+        self.exchange = exchange
+        self.queue_dir = os.path.join(self.dirpath, f"{self.exchange}-{self.name}")
 
         # If maxsize is None, the queue size is infinite
         self.maxsize = maxsize
-
-        # NOTE: A queue handles message from one exchange
-        self.exchange = exchange
 
         # Get the IOLoop running on the worker
         self.worker_loop = asyncio.new_event_loop()  # self._io_loop
@@ -35,12 +37,12 @@ class DurableQueue(BaseQueue):
 
         self.ro_segments: Dict[int, LogSegment] = {}
         self.active_segment: LogSegment = None
-        self.message_index: IndexSegment = None
+        self.index_segment: IndexSegment = None
 
         # TODO(@Amine) : Parse the storage
         self.setup_storage()
 
-        super().__init__(durability=Durability.DURABLE, maxsize=self.maxsize)
+        super().__init__(durability=durability, maxsize=self.maxsize)
 
     @property
     def _worker(self):
@@ -52,19 +54,18 @@ class DurableQueue(BaseQueue):
             return self._worker.io_loop
 
     def setup_storage(self) -> Any:
-        queue_dir = os.path.join(self.dirpath, f"{self.exchange}-{self.exchange}")
-        if not os.path.exists(queue_dir):
-            os.makedirs(queue_dir)
+        if not os.path.exists(self.queue_dir):
+            os.makedirs(self.queue_dir)
 
-        self.ro_segments, self.active_segment = self._load_segments(queue_dir)
-        self.message_index = self._load_index(queue_dir)
+        self.ro_segments, self.active_segment = self._load_segments(self.queue_dir)
+        self.index_segment = self._load_index(self.queue_dir)
 
     def _load_index(self, path: str) -> IndexSegment:
-        name = str(self.name).rjust(10, "0") + ".index"
+        name = f"{self.exchange}-{self.name}.index"
         index_path = os.path.join(path, name)
         return IndexSegment(index_path)
 
-    def _load_segments(path: str) -> Tuple[List[LogSegment], LogSegment]:
+    def _load_segments(self, path: str) -> Tuple[List[LogSegment], LogSegment]:
         segments = glob.glob(path + "/*.log")
         if segments:
             segments.sort()
@@ -76,7 +77,7 @@ class DurableQueue(BaseQueue):
         else:
             # TODO : Determine this length
             seg_name = str(0).rjust(20, "0") + ".log"
-            seg_path = os.join(path, seg_name)
+            seg_path = os.path.join(path, seg_name)
             return {}, LogSegment(seg_path, LogAccess.RW)
 
     def new_active_segment(self):
@@ -86,10 +87,10 @@ class DurableQueue(BaseQueue):
         # TODO : Should probably add the archival info in the file footer ?
         file_no = int(self.active_segment.name) + 1
         seg_name = str(file_no).rjust(20, "0") + ".log"
-        seg_path = os.join(self.dirpath, seg_name)
+        seg_path = os.path.join(self.queue_dir, seg_name)
         return LogSegment(seg_path, LogAccess.RW)
 
-    def put_sync(self, item: Message):
+    def put_sync(self, item: Message) -> IdxRecord:
         # Append to Active Segment
         # TODO : Can't retry forever, I should add a wrapper to retrie a number of times
         try:
@@ -99,12 +100,18 @@ class DurableQueue(BaseQueue):
             self.active_segment.append(item)
 
         # Add to Log Index
-        self.message_index.push(item.id, offset)
+        return self.index_segment.push(item.id, offset)
 
     def get_sync(self) -> Message:
-        _ = self.message_index.pop()
-        # rec =
-        pass
+        index_record = self.index_segment.pop()
+        file_no = index_record.offset.file_no
+
+        # TODO : Could probably keep an ordered set of segments
+        if file_no in self.ro_segments:
+            return self.ro_segments[file_no].read(index_record.offset)
+
+        record = self.active_segment.read(index_record.offset)
+        return record.msg
 
     async def put(self, item: Message, timeout=None):
         pass

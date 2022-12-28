@@ -29,12 +29,12 @@ class Record:
 
 class RecordProcessor:
     def parse_bytes(self, buffer: bytes) -> Record:
-        footer = buffer[-4:]
+        footer = buffer[-len(FOOTER) :]
         checksum_data = buffer[4:-4]
         s = 0
         checksum = struct.unpack("!I", buffer[:4])[0]
         s += 4
-        msg_size = struct.unpack("!i", buffer[s : s + 4])[0]
+        msg_size = struct.unpack("!I", buffer[s : s + 4])[0]
         s += 4
         msg = cloudpickle.loads(buffer[s : s + msg_size])
 
@@ -56,10 +56,9 @@ class RecordProcessor:
 
     def create_record(self, msg: Message):
         msg_bytes = msg.serialize()
-        record_size = struct.pack("!i", len(msg_bytes))
-
+        msg_size = struct.pack("!I", len(msg_bytes))
         # CRC covers : checksum(<MSG_SIZE><MSG>)
-        data = record_size + msg_bytes
+        data = msg_size + msg_bytes
         checksum = struct.pack("!I", crc32(data) & 0xFFFFFFFF)
         blob = checksum + data + FOOTER
         return blob

@@ -1,17 +1,17 @@
-from abc import ABC, abstractclassmethod, abstractmethod
-from enum import Enum
+from abc import ABC, abstractclassmethod
+from enum import Enum, auto
 from typing import Optional
 
 
 class Durability(Enum):
-    DURABLE: 1
-    TRANSIENT: 2
+    DURABLE = auto()
+    TRANSIENT = auto()
 
 
 class BaseQueue(ABC):
     def __init__(self, durability: Durability, maxsize: Optional[int] = None) -> None:
         self.durability = durability
-        self.maxsize = maxsize if maxsize else 1000000  # TODO: cap this limit
+        self.maxsize = maxsize
 
     @abstractclassmethod
     async def put(self):

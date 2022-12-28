@@ -39,7 +39,7 @@ class LogSegment:
         self.file = self.create_or_open(path)
         self._mm_obj = self.mmap_segment(status)
 
-        self.rec_processor = RecordProcessor()
+        self.processor = RecordProcessor()
 
     def create_or_open(self, path):
         # File Structure :
@@ -67,19 +67,18 @@ class LogSegment:
             raise Exception("The file is not the compatible with daskqueue logsegment.")
 
     def mmap_segment(self, status):
-        if status == LogAccess.RW:
-            mm_obj = mmap.mmap(self.file.fileno(), 0)
+        mm_obj = mmap.mmap(self.file.fileno(), 0)
 
+        if status == LogAccess.RW:
             # Seek to the latest write positon
             last_write = mm_obj.rfind(FOOTER)
             if last_write > 0:
-                self.w_cursor = last_write
+                self.w_cursor = last_write + len(FOOTER)
                 mm_obj.seek(self.w_cursor)
             else:
-                # Move the the header
                 self.w_cursor = 8
                 mm_obj.seek(8)
-            return mm_obj
+        return mm_obj
 
     def append(self, msg: Message) -> RecordOffset:
         if self.status != LogAccess.RW:
@@ -87,7 +86,7 @@ class LogSegment:
 
         try:
             offset = self._mm_obj.tell()
-            record_bytes = self.rec_processor.create_record(msg)
+            record_bytes = self.processor.create_record(msg)
             n_bytes = self._mm_obj.write(record_bytes)
 
             # Update write cursor
@@ -96,6 +95,11 @@ class LogSegment:
 
         except ValueError:
             raise FullSegment("The log segment is full")
+
+    def read(self, offset: RecordOffset):
+        return self.processor.parse_bytes(
+            self._mm_obj[offset.offset : offset.offset + offset.size]
+        )
 
     @property
     def closed(self) -> bool:
@@ -108,15 +112,7 @@ class LogSegment:
         self.file.close()
         self.status = LogAccess.RO
 
-        self.path = self.rename_segment()
         return self.w_cursor
-
-    def rename_segment(self):
-        self.name = str(self.w_cursor).rjust(20, "0") + ".log"
-        dirpath = os.path.dirname(self.path)
-        offset_path = os.path.join(dirpath, self.name)
-        os.rename(self.path, offset_path)
-        return offset_path
 
     def parse_name(self, path):
         filename = os.path.basename(path)

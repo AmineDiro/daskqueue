@@ -1,6 +1,7 @@
 import pytest
 
 from daskqueue.Protocol import Message
+from daskqueue.queue.durable_queue import DurableQueue
 from daskqueue.segment.index_segment import IndexSegment
 from daskqueue.segment.log_segment import LogAccess, LogSegment
 
@@ -29,3 +30,9 @@ def index_segment(tmp_path):
     index_path = tmp_path / name
     idx = IndexSegment(index_path)
     return idx
+
+
+@pytest.fixture
+def durable_queue(tmp_path):
+
+    return DurableQueue(name="queue-0", dirpath=str(tmp_path))

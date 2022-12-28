@@ -1,7 +1,7 @@
 import asyncio
 import glob
 import os
-from typing import Any, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from distributed.worker import get_worker
 
@@ -33,7 +33,7 @@ class DurableQueue(BaseQueue):
         self.worker_loop = asyncio.new_event_loop()  # self._io_loop
         asyncio.set_event_loop(self.worker_loop)
 
-        self.ro_segments: List[LogSegment] = []
+        self.ro_segments: Dict[int, LogSegment] = {}
         self.active_segment: LogSegment = None
         self.message_index: IndexSegment = None
 
@@ -69,17 +69,21 @@ class DurableQueue(BaseQueue):
         if segments:
             segments.sort()
             active_seg_path = segments.pop()
-            return [LogSegment(sp, LogAccess.RO) for sp in segments], LogSegment(
+            list_ro_segment = [LogSegment(sp, LogAccess.RO) for sp in segments]
+            return {int(seg.name): seg for seg in list_ro_segment}, LogSegment(
                 active_seg_path, LogAccess.RW
             )
         else:
             # TODO : Determine this length
             seg_name = str(0).rjust(20, "0") + ".log"
             seg_path = os.join(path, seg_name)
-            return [], LogSegment(seg_path, LogAccess.RW)
+            return {}, LogSegment(seg_path, LogAccess.RW)
 
     def new_active_segment(self):
         self.active_segment.close()
+        # Appending the closed segment to the list of read-only segments
+        self.ro_segments[int(self.active_segment.name)] = self.active_segment
+        # TODO : Should probably add the archival info in the file footer ?
         file_no = int(self.active_segment.name) + 1
         seg_name = str(file_no).rjust(20, "0") + ".log"
         seg_path = os.join(self.dirpath, seg_name)
@@ -98,9 +102,8 @@ class DurableQueue(BaseQueue):
         self.message_index.push(item.id, offset)
 
     def get_sync(self) -> Message:
-        # Pop item from dequeue
-        #
-
+        _ = self.message_index.pop()
+        # rec =
         pass
 
     async def put(self, item: Message, timeout=None):

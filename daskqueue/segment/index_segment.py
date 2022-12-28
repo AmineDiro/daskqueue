@@ -124,7 +124,7 @@ class IndexSegment:
         return self.set(msg_id, MessageStatus.READY, offset)
 
     def pop(self) -> IdxRecord:
-        idx_record: IdxRecord = self.ready.popitem()[1]
+        idx_record: IdxRecord = self.ready.popitem(last=False)[1]
         return self.set(idx_record.msg_id, MessageStatus.DELIVERED, idx_record.offset)
 
     def drop(msg: Message):

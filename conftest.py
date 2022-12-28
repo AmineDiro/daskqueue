@@ -34,5 +34,4 @@ def index_segment(tmp_path):
 
 @pytest.fixture
 def durable_queue(tmp_path):
-
     return DurableQueue(name="queue-0", dirpath=str(tmp_path))

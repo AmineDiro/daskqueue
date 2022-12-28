@@ -18,7 +18,7 @@ from daskqueue.segment.index_segment import IndexSegment
 
 
 def test_index_segment(tmp_path):
-    name = str(0).rjust(20, "0") + ".index"
+    name = str(1).rjust(10, "0") + ".index"
     index_path = tmp_path / name
 
     seg = IndexSegment(index_path)
@@ -71,6 +71,3 @@ def test_index_segment_read(msg, index_segment, log_segment):
 
     index_segment.close()
     assert len(index_segment) == N
-
-    # idx = IndexSegment(index_segment.path)
-    # assert len(idx) == N

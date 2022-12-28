@@ -25,19 +25,21 @@ class IndexSegment:
         self.path = path
         self.max_bytes = max_bytes
 
+        # In-memory datastructures
+        self.delivered = SortedDict()
+        self.ready = OrderedDict()
         self.processor = IdxRecordProcessor()
+
         self.created, self.file = self.create_or_open(path)
         self._mm_obj = self.mmap_index_segment()
-
-        # In-memory Datastructure
-        self.delivered_messages, self.ready_messages = self.load_index()
+        self.load_index()
 
     @property
     def closed(self) -> bool:
         return self._mm_obj.closed
 
     def __len__(self):
-        return len(self.ready_messages)
+        return len(self.ready) + len(self.delivered)
 
     def create_or_open(self, path):
         if not os.path.exists(path):
@@ -73,51 +75,50 @@ class IndexSegment:
         return mm_obj
 
     def load_index(self) -> Dict[UUID, IdxRecord]:
-        delivered = SortedDict()
-        ready = OrderedDict(lambda: None)
-        assert self._mm_obj.tell() == 8
-        cur = 8
-        try:
-            while cur < self.max_bytes:
+        assert self._mm_obj.tell() == HEADER_SIZE
+        cur = HEADER_SIZE
+        while cur < self.max_bytes:
+            try:
                 idx_record = self.processor.parse_bytes(
                     self._mm_obj[cur : cur + self.processor.RECORD_SIZE]
                 )
                 cur += self.processor.RECORD_SIZE
-                self.update_index(ready, idx_record)
-        finally:
-            self._mm_obj.seek(HEADER_SIZE)
-            return delivered, ready
+                self.update_index(idx_record)
+            except ValueError:
+                break
+            except AssertionError:
+                break
+
+        self._mm_obj.seek(HEADER_SIZE)
 
     def update_index(
         self,
-        delivered: SortedDict[int, IdxRecord],
-        ready: OrderedDict[UUID, IdxRecord],
         idx_record: IdxRecord,
     ):
         if idx_record.status == MessageStatus.READY:
-            ready[idx_record.msg_id] = idx_record
+            self.ready[idx_record.msg_id] = idx_record
 
         elif idx_record.status == MessageStatus.DELIVERED:
-            ready.pop(idx_record.msg_id, None)
-            delivered[idx_record.timestamp] = idx_record
+            self.ready.pop(idx_record.msg_id, None)
+            self.delivered[idx_record.timestamp] = idx_record
 
         elif idx_record.status == MessageStatus.ACKED:
             # Shouldn't have an acked message in ready queue
-            delivered.pop(idx_record.timestamp)
+            self.delivered.pop(idx_record.timestamp)
 
     def set(self, msg_id: UUID, status: MessageStatus, offset: RecordOffset):
-        # Write to disk
+        # Write to disk .index file
         tmstmp = time.time()
         idx_record = IdxRecord(msg_id, status, offset, tmstmp)
-        idx_record_bytes = self.processor.create_idx_record(idx_record)
+        idx_record_bytes = self.processor.serialize_idx_record(idx_record)
         _ = self._mm_obj.write(idx_record_bytes)
 
-        # Update internal index
-        self.msg_index[msg_id] = idx_record
+        # Update internal mem index
+        self.update_index(idx_record)
 
     def get(self, msg_id: UUID) -> IdxRecord:
         # Finds the msg in the index
-        return self.msg_index[msg_id]
+        return self.ready[msg_id]
 
     def pop() -> Message:
         pass

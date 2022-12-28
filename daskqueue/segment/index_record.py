@@ -54,7 +54,7 @@ class IdxRecordProcessor:
         # key is the bytes of the key,
         return crc32(checksum_data) & 0xFFFFFFFF == retrieved_checksum
 
-    def create_idx_record(self, idx_record: IdxRecord):
+    def serialize_idx_record(self, idx_record: IdxRecord):
         # <CRC-4><TIMESTAMP><MSG_ID-4><STATUS-1><POINTER>)
         timestamp_bytes = struct.pack("!f", idx_record.timestamp)  # 4 bytes
         id = idx_record.msg_id.bytes  # 16 bytes

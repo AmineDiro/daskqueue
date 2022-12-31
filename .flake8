@@ -12,3 +12,5 @@ exclude =
     dist,
     tests/*.py,
     versioneer.py
+per-file-ignores =
+    */__init__.py: F401

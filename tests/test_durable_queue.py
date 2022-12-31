@@ -1,3 +1,5 @@
+from queue import Queue
+
 from daskqueue.Protocol import Message
 from daskqueue.queue.durable_queue import DurableQueue
 

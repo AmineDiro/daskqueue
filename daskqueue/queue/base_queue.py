@@ -14,6 +14,10 @@ class BaseQueue(ABC):
         self.maxsize = maxsize
 
     @abstractclassmethod
+    def qsize(self):
+        raise NotImplementedError("Needs a qsize method ")
+
+    @abstractclassmethod
     async def put(self):
         raise NotImplementedError("Need an async put method")
 
@@ -24,7 +28,3 @@ class BaseQueue(ABC):
     @abstractclassmethod
     async def get(self):
         raise NotImplementedError("Needs an async get method")
-
-    @abstractclassmethod
-    def qsize(self):
-        raise NotImplementedError("Needs a qsize method ")

@@ -5,12 +5,11 @@ NOTE : Under heavy development !
 """
 
 # from actors.dask_actors import QueueActor
-import asyncio
 from typing import Any, Callable, List
 
 from distributed import wait
 
-from .queue.transient_queue import QueueActor
+from .queue.transient_queue import TransientQueue
 
 
 class ActorPool:
@@ -20,7 +19,7 @@ class ActorPool:
         actors (list): List of DaskActors to use in this pool.
     """
 
-    def __init__(self, actors: List[QueueActor]):
+    def __init__(self, actors: List[TransientQueue]):
         # actors to be used
         self._idle_actors = list(actors)
 

@@ -114,13 +114,14 @@ class DurableQueue(BaseQueue):
         return record.msg
 
     async def put(self, item: Message, timeout=None):
-        pass
+        return self.put_sync(item)
 
-    async def put_many(self, list_items):
-        pass
+    async def put_many(self, list_items: List[Message]):
+        for item in list_items:
+            self.put_sync(item)
 
-    async def get(self, timeout=None):
-        pass
+    async def get(self, timeout=None) -> Message:
+        return self.get_sync()
 
     def qsize(self):
-        pass
+        return len(self.index_segment)

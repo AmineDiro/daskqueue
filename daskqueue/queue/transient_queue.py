@@ -7,7 +7,7 @@ from daskqueue.queue.queue_exceptions import Empty, Full
 from .base_queue import BaseQueue
 
 
-class QueueActor(BaseQueue):
+class TransientQueue(BaseQueue):
     def __init__(self, maxsize=-1):
         # If maxsize is less than or equal to zero, the queue size is infinite
         self.maxsize = maxsize

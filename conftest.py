@@ -1,4 +1,11 @@
 import pytest
+from distributed.utils_test import (  # noqa
+    cleanup,
+    client,
+    cluster_fixture,
+    gen_cluster,
+    loop,
+)
 
 from daskqueue.Protocol import Message
 from daskqueue.queue.durable_queue import DurableQueue

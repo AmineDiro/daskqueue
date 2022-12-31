@@ -76,4 +76,3 @@ def test_durable_queuepool(client, tmp_path):
     )
     res = consumer_pool.results()
     assert n_calls * [None] == [val for k in res for val in res[k].values()]
-    assert False

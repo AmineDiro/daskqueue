@@ -1,9 +1,10 @@
 import asyncio
-from queue import Queue
+from queue import Empty, Full, Queue
+from typing import List, Optional
 
 from distributed.worker import get_worker
 
-from daskqueue.queue.queue_exceptions import Empty, Full
+from daskqueue.Protocol import Message
 
 from .base_queue import BaseQueue, Durability
 
@@ -14,13 +15,12 @@ class TransientQueue(BaseQueue):
         self.maxsize = maxsize
         # Get the IOLoop running on the worker
 
+        self.queue = Queue(maxsize=maxsize)
         try:
             self.loop = self._io_loop.asyncio_loop
             asyncio.set_event_loop(self.loop)
-            self.queue = asyncio.Queue(self.maxsize)
         except ValueError:
             self.loop = None
-            self.queue = Queue(maxsize=maxsize)
 
         super().__init__(durability=Durability.TRANSIENT, maxsize=maxsize)
 
@@ -44,25 +44,25 @@ class TransientQueue(BaseQueue):
 
     async def put_many(self, list_items):
         for item in list_items:
-            await self.queue.put(item)
+            self.queue.put(item, block=False)
 
     async def put(self, item, timeout=None):
-        try:
-            await asyncio.wait_for(self.queue.put(item), timeout)
-        except asyncio.TimeoutError:
-            raise Full
+        self.queue.put(item, timeout=timeout)
 
     def put_sync(self, item):
         return self.queue.put(item)
 
-    def get_sync(self):
-        return self.queue.get()
+    def get_sync(self, timeout=None):
+        try:
+            return self.queue.get(block=False)
+        except Empty:
+            return None
 
     async def get(self, timeout=None):
-        try:
-            return await asyncio.wait_for(self.queue.get(), timeout=timeout)
-        except asyncio.TimeoutError:
-            return None
+        return self.get_sync(timeout)
+
+    async def get_many(self, n: int, timeout=None) -> List[Optional[Message]]:
+        return [self.get_sync(timeout) for _ in range(n)]
 
     def put_nowait(self, item):
         self.queue.put_nowait(item)

@@ -7,7 +7,7 @@ from distributed import Client, LocalCluster
 
 from daskqueue import ConsumerPool, Durability, QueuePool
 
-N = 200_000
+N = 10_000
 N_TEST = 1
 MAX_BYTES = 100 * int(1e6)  # 100 MB
 n_queues = 1
@@ -64,7 +64,7 @@ def bench(durable, progress):
         n_workers=10,
         threads_per_worker=1,
         dashboard_address=":3338",
-        worker_dashboard_address=":8787",
+        worker_dashboard_address=":0",
     )
     client = Client(cluster, direct_to_workers=True)
 

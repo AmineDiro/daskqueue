@@ -26,6 +26,8 @@ class ConsumerBaseClass(ABC):
         self._running_tasks = []
         self._logger = logger
         self.max_concurrency = max_concurrency
+        self.batch = True
+        self.batch_size = 100
 
     async def len_items(self) -> int:
         return len(self.items)
@@ -41,8 +43,13 @@ class ConsumerBaseClass(ABC):
 
     async def done(self) -> bool:
         await self.update_state()
+
         try:
-            done = len(self._running_tasks) == 0 and self.fetch_loop.done()
+            done = (
+                len(self._running_tasks) == 0
+                and self.fetch_loop.done()
+                and len(self.items) > 0
+            )
             return done
         except AttributeError:
             # Hasn't started the loop yet
@@ -65,30 +72,39 @@ class ConsumerBaseClass(ABC):
     async def _consume(self, timeout: float = 0.1) -> None:
         """Runs an async loop to fetch item from a queue determined by the QueuePool and processes it in place"""
         loop = asyncio.get_event_loop()
-        while True:
-            await self.update_state()
+        try:
+            while True:
+                await self.update_state()
 
-            item = await self._current_q.get(timeout=timeout)
+                if not self.batch:
+                    items = [await self._current_q.get(timeout=timeout)]
 
-            if item is None:
-                if len(self.items) == 0:
-                    continue
                 else:
-                    break
+                    items = await self._current_q.get_many(
+                        self.batch_size, timeout=timeout
+                    )
 
-            logger.debug(f"[{self.name}]: Received item : {item}")
-            self.items.append(item)
+                for item in items:
+                    logger.debug(f"[{self.name}]: Received item : {item}")
+                    if item is None:
+                        if len(self.items) == 0:
+                            continue
+                        else:
+                            raise ValueError("Received None.")
 
-            task = asyncio.ensure_future(
-                loop.run_in_executor(self._executor, self.process_item, item),
-            )
+                    self.items.append(item)
 
-            self._running_tasks.append(task)
+                    task = asyncio.ensure_future(
+                        loop.run_in_executor(self._executor, self.process_item, item),
+                    )
 
-            if len(self._running_tasks) > self.max_concurrency:
-                done, pending = await asyncio.wait(
-                    self._running_tasks, return_when=asyncio.FIRST_COMPLETED
-                )
+                    self._running_tasks.append(task)
+                    if len(self._running_tasks) > self.max_concurrency:
+                        done, pending = await asyncio.wait(
+                            self._running_tasks, return_when=asyncio.FIRST_COMPLETED
+                        )
+        except ValueError:
+            pass
 
     async def cancel(self) -> None:
         """Cancels the running _consume task"""

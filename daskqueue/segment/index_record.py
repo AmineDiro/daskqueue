@@ -14,7 +14,7 @@ class MessageStatus(IntEnum):
     FAILED = auto()
 
 
-@dataclass(frozen=True)
+@dataclass
 class IdxRecord:
     msg_id: UUID
     status: MessageStatus

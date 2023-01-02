@@ -8,7 +8,7 @@ from daskqueue.Protocol import Message
 from daskqueue.segment import FOOTER
 
 
-@dataclass(frozen=True)
+@dataclass
 class RecordOffset:
     __slots__ = ["file_no", "offset", "size"]
     file_no: int
@@ -19,7 +19,7 @@ class RecordOffset:
         return struct.pack("!III", self.file_no, self.offset, self.size)
 
 
-@dataclass(frozen=True)
+@dataclass
 class Record:
     checksum: int
     msg_size: int

@@ -1,10 +1,11 @@
 import asyncio
+from queue import Queue
 
 from distributed.worker import get_worker
 
 from daskqueue.queue.queue_exceptions import Empty, Full
 
-from .base_queue import BaseQueue
+from .base_queue import BaseQueue, Durability
 
 
 class TransientQueue(BaseQueue):
@@ -12,9 +13,16 @@ class TransientQueue(BaseQueue):
         # If maxsize is less than or equal to zero, the queue size is infinite
         self.maxsize = maxsize
         # Get the IOLoop running on the worker
-        self.loop = self._io_loop.asyncio_loop
-        asyncio.set_event_loop(self.loop)
-        self.queue = asyncio.Queue(self.maxsize)
+
+        try:
+            self.loop = self._io_loop.asyncio_loop
+            asyncio.set_event_loop(self.loop)
+            self.queue = asyncio.Queue(self.maxsize)
+        except ValueError:
+            self.loop = None
+            self.queue = Queue(maxsize=maxsize)
+
+        super().__init__(durability=Durability.TRANSIENT, maxsize=maxsize)
 
     @property
     def _worker(self):
@@ -43,6 +51,12 @@ class TransientQueue(BaseQueue):
             await asyncio.wait_for(self.queue.put(item), timeout)
         except asyncio.TimeoutError:
             raise Full
+
+    def put_sync(self, item):
+        return self.queue.put(item)
+
+    def get_sync(self):
+        return self.queue.get()
 
     async def get(self, timeout=None):
         try:

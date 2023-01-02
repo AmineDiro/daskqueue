@@ -3,7 +3,7 @@ import os
 import struct
 import time
 from collections import OrderedDict
-from typing import Dict
+from typing import Dict, Optional
 from uuid import UUID
 
 from sortedcontainers import SortedDict
@@ -123,9 +123,14 @@ class IndexSegment:
     def push(self, msg_id: UUID, offset: RecordOffset) -> IdxRecord:
         return self.set(msg_id, MessageStatus.READY, offset)
 
-    def pop(self) -> IdxRecord:
-        idx_record: IdxRecord = self.ready.popitem(last=False)[1]
-        return self.set(idx_record.msg_id, MessageStatus.DELIVERED, idx_record.offset)
+    def pop(self) -> Optional[IdxRecord]:
+        try:
+            idx_record: IdxRecord = self.ready.popitem(last=False)[1]
+            return self.set(
+                idx_record.msg_id, MessageStatus.DELIVERED, idx_record.offset
+            )
+        except KeyError:
+            return None
 
     def drop(msg: Message):
         pass

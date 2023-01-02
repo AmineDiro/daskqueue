@@ -8,4 +8,4 @@ FOOTER = b"\x52\x3f\x4a\x43"
 
 HEADER_SIZE = 8
 
-MAX_BYTES = 1024 * 1024  # 1MB
+MAX_BYTES = 10 * 1024 * 1024  # 1MB

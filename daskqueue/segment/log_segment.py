@@ -69,6 +69,8 @@ class LogSegment:
     def mmap_segment(self, status):
         mm_obj = mmap.mmap(self.file.fileno(), 0)
 
+        self.w_cursor = 8
+
         if status == LogAccess.RW:
             # Seek to the latest write positon
             last_write = mm_obj.rfind(FOOTER)
@@ -76,8 +78,11 @@ class LogSegment:
                 self.w_cursor = last_write + len(FOOTER)
                 mm_obj.seek(self.w_cursor)
             else:
+                mm_obj.seek(8)
+
                 self.w_cursor = 8
                 mm_obj.seek(8)
+
         return mm_obj
 
     def append(self, msg: Message) -> RecordOffset:
@@ -107,11 +112,14 @@ class LogSegment:
             return True
         return self._mm_obj.closed
 
+    def archive(self):
+        self.status = LogAccess.RO
+        return self.w_cursor
+
     def close(self) -> int:
         self._mm_obj.close()
         self.file.close()
         self.status = LogAccess.RO
-
         return self.w_cursor
 
     def parse_name(self, path):

@@ -97,21 +97,23 @@ class DurableQueue(BaseQueue):
             offset = self.active_segment.append(item)
         except FullSegment:
             self.active_segment = self.new_active_segment()
-            self.active_segment.append(item)
+            offset = self.active_segment.append(item)
 
         # Add to Log Index
         return self.index_segment.push(item.id, offset)
 
-    def get_sync(self) -> Message:
+    def get_sync(self) -> Optional[Message]:
         index_record = self.index_segment.pop()
-        file_no = index_record.offset.file_no
+        if index_record is not None:
+            file_no = index_record.offset.file_no
 
-        # TODO : Could probably keep an ordered set of segments
-        if file_no in self.ro_segments:
-            return self.ro_segments[file_no].read(index_record.offset)
+            # TODO : Could probably keep an ordered set of segments
+            if file_no in self.ro_segments:
+                return self.ro_segments[file_no].read(index_record.offset)
 
-        record = self.active_segment.read(index_record.offset)
-        return record.msg
+            record = self.active_segment.read(index_record.offset)
+            return record.msg
+        return None
 
     async def put(self, item: Message, timeout=None):
         return self.put_sync(item)
@@ -120,8 +122,11 @@ class DurableQueue(BaseQueue):
         for item in list_items:
             self.put_sync(item)
 
-    async def get(self, timeout=None) -> Message:
+    async def get(self, timeout=None) -> Optional[Message]:
         return self.get_sync()
+
+    async def get_many(self, n: int, timeout=None) -> List[Optional[Message]]:
+        return [self.get_sync() for _ in range(n)]
 
     def qsize(self):
         return len(self.index_segment)

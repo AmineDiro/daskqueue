@@ -191,14 +191,6 @@ class QueuePoolActor:
             ## TODO : implement canceling tasks  in Queue and QueuePool
             raise PutTimeout(f"Couldn't put all element in queue : {q}")
 
-    def put_nowait_batch(self, items):
-        pass
-        # # If maxsize is 0, queue is unbounded, so no need to check size.
-        # if self.maxsize > 0 and len(items) + self.qsize() > self.maxsize:
-        #     pass
-        # for item in items:
-        #     self.queue.put_nowait(item)
-
 
 def decorator(cls):
     class Interface:

@@ -72,3 +72,33 @@ def test_index_segment_read(msg, index_segment, log_segment):
 
     index_segment.close()
     assert len(index_segment) == N
+
+
+def test_index_segment_pop(msg, index_segment: IndexSegment, log_segment):
+    from conftest import func
+
+    N = 10
+    M = 3
+    for _ in range(N):
+        msg = Message(func, 1)
+        offset = log_segment.append(msg)
+        index_segment.set(msg.id, MessageStatus.READY, offset)
+
+    for _ in range(M):
+        rec = index_segment.pop()
+    assert len(index_segment.delivered) == M
+    assert len(index_segment.ready) == N - M
+
+
+def test_index_segment_pop(msg, index_segment: IndexSegment, log_segment):
+    from conftest import func
+
+    N = 10
+    for _ in range(N):
+        msg = Message(func, 1)
+        offset = log_segment.append(msg)
+        index_segment.set(msg.id, MessageStatus.READY, offset)
+
+    rec = index_segment.pop()
+    assert len(index_segment.delivered) == 1
+    assert len(index_segment.ready) == N - 1

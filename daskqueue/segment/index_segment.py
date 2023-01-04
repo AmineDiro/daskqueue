@@ -103,10 +103,6 @@ class IndexSegment:
             self.ready.pop(idx_record.msg_id, None)
             self.delivered[idx_record.timestamp] = idx_record
 
-        elif idx_record.status == MessageStatus.ACKED:
-            # Shouldn't have an acked message in ready queue
-            self.delivered.pop(idx_record.timestamp)
-
     def set(
         self, msg_id: UUID, status: MessageStatus, offset: RecordOffset
     ) -> IdxRecord:
@@ -135,7 +131,17 @@ class IndexSegment:
     def drop(msg: Message):
         pass
 
-    def ack(msg: Message):
+    def ack(self, timestamp: float, msg_id: Message):
+        # Pop the delivered messages from the queue
+        idx_record = self.delivered.pop(timestamp, default=None)
+        if idx_record is None or idx_record.msg_id != msg_id:
+            raise ValueError("Msg doesnt exist in the delivered list")
+
+        # Update
+        return self.set(msg_id, MessageStatus.ACKED, idx_record.offset)
+
+    # TODO: Compat
+    def _compact(self):
         pass
 
     def parse_name(self, path):

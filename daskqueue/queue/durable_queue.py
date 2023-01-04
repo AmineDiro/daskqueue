@@ -2,6 +2,7 @@ import asyncio
 import glob
 import os
 from typing import Any, Dict, List, Optional, Tuple
+from uuid import UUID
 
 from distributed.worker import get_worker
 
@@ -104,16 +105,17 @@ class DurableQueue(BaseQueue):
 
     def get_sync(self) -> Optional[Message]:
         index_record = self.index_segment.pop()
-        if index_record is not None:
-            file_no = index_record.offset.file_no
+        if index_record is None:
+            return None
 
-            # TODO : Could probably keep an ordered set of segments
-            if file_no in self.ro_segments:
-                return self.ro_segments[file_no].read(index_record.offset)
+        file_no = index_record.offset.file_no
+        # TODO : Could probably keep an ordered set of segments
+        if file_no in self.ro_segments:
+            return self.ro_segments[file_no].read(index_record.offset)
 
-            record = self.active_segment.read(index_record.offset)
-            return record.msg
-        return None
+        record = self.active_segment.read(index_record.offset)
+        record.msg.delivered_timestamp = index_record.timestamp
+        return record.msg
 
     async def put(self, item: Message, timeout=None):
         return self.put_sync(item)
@@ -127,6 +129,12 @@ class DurableQueue(BaseQueue):
 
     async def get_many(self, n: int, timeout=None) -> List[Optional[Message]]:
         return [self.get_sync() for _ in range(n)]
+
+    def ack_sync(self, timestamp: float, msg_id: UUID):
+        return self.index_segment.ack(timestamp, msg_id)
+
+    async def ack(self, timestamp: float, msg_id: UUID):
+        return self.ack_sync(timestamp, msg_id)
 
     def qsize(self):
         return len(self.index_segment)

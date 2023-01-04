@@ -1,6 +1,7 @@
 from abc import ABC, abstractclassmethod
 from enum import Enum, auto
 from typing import Optional
+from uuid import UUID
 
 
 class Durability(Enum):
@@ -27,4 +28,8 @@ class BaseQueue(ABC):
 
     @abstractclassmethod
     async def get(self):
+        raise NotImplementedError("Needs an async get method")
+
+    @abstractclassmethod
+    async def ack(self, msg_id: UUID):
         raise NotImplementedError("Needs an async get method")

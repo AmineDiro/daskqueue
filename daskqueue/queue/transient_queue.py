@@ -1,6 +1,7 @@
 import asyncio
 from queue import Empty, Full, Queue
 from typing import List, Optional
+from uuid import UUID
 
 from distributed.worker import get_worker
 
@@ -89,3 +90,6 @@ class TransientQueue(BaseQueue):
                 f"Cannot get {num_items} items from queue of size " f"{self.qsize()}."
             )
         return [self.queue.get_nowait() for _ in range(num_items)]
+
+    async def ack(msg_id: UUID):
+        pass

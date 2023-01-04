@@ -48,7 +48,7 @@ class ConsumerBaseClass(ABC):
         return len(self._running_tasks)
 
     async def get_current_queue(self) -> BaseQueue:
-        return self._current_q
+        return self._current_
 
     async def get_items(self) -> List[Any]:
         return self.items

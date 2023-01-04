@@ -11,6 +11,7 @@ class Message:
     def __init__(self, func, *args, **kwargs) -> None:
         self.id = uuid.uuid4()
         self.timestamp = int(time.time())
+        self.delivered_timestamp = None
 
         if not isinstance(func, Callable):
             raise RuntimeError

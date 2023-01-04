@@ -90,7 +90,7 @@ def test_index_segment_pop(msg, index_segment: IndexSegment, log_segment):
     assert len(index_segment.ready) == N - M
 
 
-def test_index_segment_pop(msg, index_segment: IndexSegment, log_segment):
+def test_index_segment_ack(msg, index_segment: IndexSegment, log_segment):
     from conftest import func
 
     N = 10
@@ -101,4 +101,11 @@ def test_index_segment_pop(msg, index_segment: IndexSegment, log_segment):
 
     rec = index_segment.pop()
     assert len(index_segment.delivered) == 1
+
+    assert index_segment.delivered.keys()[0] == rec.timestamp
+
+    delivered_rec = index_segment.ack(rec.timestamp, rec.msg_id)
+    assert len(index_segment.delivered) == 0
     assert len(index_segment.ready) == N - 1
+    assert delivered_rec.timestamp > rec.timestamp
+    assert delivered_rec.status == MessageStatus.ACKED

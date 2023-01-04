@@ -21,6 +21,7 @@ class ConsumerPool:
         queue_pool: QueuePool,
         ConsumerClass: TConsumer = GeneralConsumer,
         n_consumers: int = 1,
+        batch_size: int = 1000,
         max_concurrency: int = 10000,
     ) -> None:
         if not issubclass(ConsumerClass, ConsumerBaseClass):
@@ -31,6 +32,7 @@ class ConsumerPool:
         self.queue_pool = queue_pool.actor
         self.consumer_class = ConsumerClass
         self.consumers = {}
+        self.batch_size = batch_size
         for idx in range(n_consumers):
             name = f"{ConsumerClass.__name__}-{idx}"
             self.consumers[name] = client.submit(
@@ -38,7 +40,8 @@ class ConsumerPool:
                 idx + 1,
                 name,
                 self.queue_pool,
-                max_concurrency=max_concurrency,
+                max_concurrency,
+                batch_size,
                 actor=True,
             ).result()
 

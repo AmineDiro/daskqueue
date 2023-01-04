@@ -142,6 +142,7 @@ TODO
 - [x] Add benchmarks
 - [x] Tests
 - [x] Implement durable queues
+- [ ] Implement health check mechanism
 - [ ] Implement reliability : tasks retries, acks mechanisms
 - [ ] Improve `batch_submit` perfomance
 - [ ] Notify dask dahboard

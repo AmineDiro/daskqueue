@@ -42,8 +42,11 @@ def test_consumer_pool_submit_pure(client):
 def test_consumer_pool_submit_noreturn(client):
     n_queues = 1
     queue_pool = QueuePool(client, n_queues)
-    n_consumers = 2
-    consumer_pool = ConsumerPool(client, queue_pool=queue_pool, n_consumers=n_consumers)
+    n_consumers = 10
+
+    consumer_pool = ConsumerPool(
+        client, queue_pool=queue_pool, n_consumers=n_consumers, batch_size=1
+    )
     for _ in range(10):
         queue_pool.submit(func_no_return)
 

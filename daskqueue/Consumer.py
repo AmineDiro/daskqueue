@@ -18,11 +18,10 @@ class ConsumerBaseClass(ABC):
     def __init__(
         self,
         id: int,
-        name,
+        name: str,
         pool,
-        max_concurrency: int = 10000,
-        batch: bool = True,
-        batch_size: int = 1000,
+        max_concurrency: int,
+        batch_size: int,
     ) -> None:
         self.id = id
         self.name = name + f"-{os.getpid()}"
@@ -34,7 +33,6 @@ class ConsumerBaseClass(ABC):
         self._running_tasks = []
         self._logger = logger
         self.max_concurrency = max_concurrency
-        self.batch = batch
         self.batch_size = batch_size
 
     async def len_items(self) -> int:
@@ -56,7 +54,7 @@ class ConsumerBaseClass(ABC):
             done = (
                 len(self._running_tasks) == 0
                 and self.fetch_loop.done()
-                and len(self.items) > 0
+                # and len(self.items) > 0
             )
             return done
         except AttributeError:
@@ -80,24 +78,18 @@ class ConsumerBaseClass(ABC):
     async def _consume(self, timeout: float = 0.1) -> None:
         """Runs an async loop to fetch item from a queue determined by the QueuePool and processes it in place"""
         loop = asyncio.get_event_loop()
+        retry = 0
         while True:
             try:
                 await self.update_state()
 
-                if not self.batch:
-                    items = [await self._current_q.get(timeout=timeout)]
-
-                else:
-                    items = await self._current_q.get_many(
-                        self.batch_size, timeout=timeout
-                    )
+                items = await self._current_q.get_many(self.batch_size, timeout=timeout)
 
                 for item in items:
                     logger.debug(f"[{self.name}]: Received item : {item}")
                     if item is None:
-                        if len(self.items) == 0:
-                            continue
-                        else:
+                        retry += 1
+                        if retry > 3:
                             raise ValueError("Received None.")
 
                     self.items.append(item)
@@ -136,11 +128,17 @@ class DummyConsumer(ConsumerBaseClass):
 
 class GeneralConsumer(ConsumerBaseClass):
     def __init__(
-        self, id: int, name, pool, max_concurrency: int = 10000, backend: Backend = None
+        self,
+        id: int,
+        name,
+        pool,
+        batch_size,
+        max_concurrency: int = 10000,
+        backend: Backend = None,
     ) -> None:
         self.backend = backend
         self._results = defaultdict(lambda: None)
-        super().__init__(id, name, pool, max_concurrency)
+        super().__init__(id, name, pool, batch_size, max_concurrency)
 
     def get_results(self) -> Dict[Message, Any]:
         return self._results

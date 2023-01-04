@@ -199,9 +199,9 @@ def decorator(cls):
         def batch_submit(
             self,
             list_calls: List[Tuple[Callable, ...]],
-            async_mode: bool,
+            async_mode: bool = False,
             timeout=None,
-            worker_class=GeneralConsumer,
+            worker_class: ConsumerBaseClass = GeneralConsumer,
             batch_size: int = 1000,
             **kwargs,
         ):
@@ -224,7 +224,7 @@ def decorator(cls):
 
             with ThreadPoolExecutor(min(os.cpu_count(), self.n_queues)) as e:
                 for msgs in msg_grouper(
-                    max(len(list_calls) // self.n_queues + 1, batch_size), list_calls
+                    min(len(list_calls) // self.n_queues + 1, batch_size), list_calls
                 ):
                     if async_mode:
                         # Will not wait on the actor response

@@ -20,8 +20,8 @@ class ConsumerBaseClass(ABC):
         id: int,
         name: str,
         pool,
-        max_concurrency: int,
         batch_size: int,
+        max_concurrency: int,
     ) -> None:
         self.id = id
         self.name = name + f"-{os.getpid()}"

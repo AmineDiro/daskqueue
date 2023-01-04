@@ -20,7 +20,14 @@ logging.basicConfig(
 async def test_async_consumer_create(s, a, b):
     async with Client(s.address, asynchronous=True) as c:
         worker = c.submit(
-            DummyConsumer, 1, "test-consumer", "test", workers=[a.address], actor=True
+            DummyConsumer,
+            1,
+            "test-consumer",
+            "test",
+            1,
+            10000,
+            workers=[a.address],
+            actor=True,
         )
         worker = await worker
         assert hasattr(worker, "get_items")
@@ -47,7 +54,7 @@ async def test_consummer_get_item(c, s, a, b):
         queue_pool = await c.submit(QueuePoolActor, 1, actor=True)
         await queue_pool.put(1)
         consumer = await c.submit(
-            DummyConsumer, 1, "test-consumer", queue_pool, actor=True
+            DummyConsumer, 1, "test-consumer", queue_pool, 1, 1000, actor=True
         )
         await consumer.start()
         res = await consumer.get_items()
@@ -61,7 +68,7 @@ async def test_consummer_get_item(c, s, a, b):
         await queue_pool.put(1)
         await queue_pool.put(1)
         consumer = await c.submit(
-            DummyConsumer, 1, "test-consumer", queue_pool, actor=True
+            DummyConsumer, 1, "test-consumer", queue_pool, 1, 1000, actor=True
         )
         await consumer.start()
         assert await consumer.is_consumming() == True

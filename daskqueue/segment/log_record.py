@@ -1,8 +1,7 @@
+import pickle
 import struct
 from binascii import crc32
 from dataclasses import dataclass
-
-import cloudpickle
 
 from daskqueue.Protocol import Message
 from daskqueue.segment import FOOTER
@@ -36,7 +35,7 @@ class RecordProcessor:
         s += 4
         msg_size = struct.unpack("!I", buffer[s : s + 4])[0]
         s += 4
-        msg = cloudpickle.loads(buffer[s : s + msg_size])
+        msg = pickle.loads(buffer[s : s + msg_size])
 
         record = Record(
             checksum=checksum,

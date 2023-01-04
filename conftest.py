@@ -15,9 +15,12 @@ from daskqueue.segment.log_segment import LogAccess, LogSegment
 MAX_BYTES = 100 * 1024  # 100KB
 
 
+def func(x):
+    return x + 2
+
+
 @pytest.fixture
 def msg():
-    func = lambda x: x + 2
     msg = Message(func, 12)
     return msg
 

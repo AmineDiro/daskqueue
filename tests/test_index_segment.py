@@ -61,9 +61,10 @@ def test_index_segment_close(index_segment, msg):
 
 
 def test_index_segment_read(msg, index_segment, log_segment):
+    from conftest import func
+
     N = 10
 
-    func = lambda x: x + 2
     for _ in range(N):
         msg = Message(func, 1)
         offset = log_segment.append(msg)

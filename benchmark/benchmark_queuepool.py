@@ -7,11 +7,11 @@ from distributed import Client, LocalCluster
 
 from daskqueue import ConsumerPool, Durability, QueuePool
 
-N = 10_000
+N = 100_000
 N_TEST = 1
 MAX_BYTES = 100 * int(1e6)  # 100 MB
 n_queues = 1
-n_consumers = 1
+n_consumers = 10
 
 cprint = click.echo
 gprint = lambda s: click.style(s, fg="green")

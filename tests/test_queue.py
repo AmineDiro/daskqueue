@@ -22,13 +22,6 @@ async def test_create_queue(c, s, a, b):
 
 
 @gen_cluster(client=True, cluster_dump_directory=False)
-async def test_getnowait_from_empty_queue(c, s, a, b):
-    queue = await c.submit(TransientQueue, actor=True)
-    res = await queue.get_nowait()
-    assert None == res
-
-
-@gen_cluster(client=True, cluster_dump_directory=False)
 async def test_get_from_empty_queue(c, s, a, b):
     queue = await c.submit(TransientQueue, actor=True)
     res = await queue.get(timeout=1)

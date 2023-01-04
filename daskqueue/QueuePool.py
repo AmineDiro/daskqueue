@@ -1,6 +1,7 @@
 import asyncio
 import functools
 import itertools
+import os
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Callable, Dict, List, Tuple, TypeVar, Union
 
@@ -38,7 +39,7 @@ class QueuePoolActor:
     ):
         # actors to be used
         self._client = get_client()
-        self.executor = ThreadPoolExecutor(min(n_queues, 10))
+        self.n_queues = n_queues
         self._queues = self.create_queues(n_queues, durability, **kwargs)
 
         self._cycle_queues_put = itertools.cycle(self._queues)
@@ -130,7 +131,7 @@ class QueuePoolActor:
         msg = Message(func, *args, **kwargs)
         await self.put(msg, timeout=timeout)
 
-    async def batch_submit(
+    def batch_submit(
         self,
         list_calls: List[Tuple[Callable, ...]],
         timeout=None,
@@ -153,9 +154,11 @@ class QueuePoolActor:
             )
 
         futures = []
-        for msgs in msg_grouper(len(list_calls) // self.n_queues + 1, list_calls):
-            f = self.executor.submit(self.put_many_sync, msgs)
-            futures.append(f)
+
+        with ThreadPoolExecutor(min(os.cpu_count(), self.n_queues)) as e:
+            for msgs in msg_grouper(len(list_calls) // self.n_queues + 1, list_calls):
+                f = e.submit(self.put_many_sync, msgs)
+                futures.append(f)
         [f.result() for f in futures]
 
     def put_many_sync(self, list_items: List[Any]) -> None:
@@ -185,7 +188,7 @@ class QueuePoolActor:
     async def put_many(self, list_items: List[Any], timeout=None) -> None:
         q = next(self._cycle_queues_put)
         try:
-            await asyncio.wait_for(q.put_many(list_items), timeout)
+            q.put_many(list_items)
             self._total_put += len(list_items)
         except asyncio.TimeoutError:
             ## TODO : implement canceling tasks  in Queue and QueuePool

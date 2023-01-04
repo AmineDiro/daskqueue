@@ -39,7 +39,6 @@
 Example :
 [Seg0:  0-957 (RO)] [Seg1: 958-1484 (RO)] [Seg2: 1485-... (RW)]
 
-- [ ] Seek to last written position when we reopen the file
 
 ### Directory structure
 - 1 dir per Topic ( per exchange)
@@ -51,6 +50,10 @@ Example :
 - Timestamp index :  Index on timestamps to find specific msg : should be implemented as a binary search tree
 
 ## Message Status:
-
 - A Msg can either be : Ready |  Delivered | Acked
 -
+
+---
+##  TODO : Durable queue
+- [ ] Improve the  batch submit func
+- [ ] Append to multiple log semgents

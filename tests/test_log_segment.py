@@ -28,7 +28,7 @@ def test_logsegment(tmp_path):
     seg_path = tmp_path / seg_name
 
     seg = LogSegment(seg_path, LogAccess.RO, 1024)
-    assert seg.w_cursor == 0
+    assert seg.w_cursor == 8
 
 
 def test_check_segfile(tmpdir):

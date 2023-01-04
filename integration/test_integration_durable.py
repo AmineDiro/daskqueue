@@ -2,6 +2,7 @@ from time import perf_counter
 
 import click
 
+from conftest import func
 from daskqueue import ConsumerPool
 from daskqueue.Protocol import Message
 from daskqueue.queue.base_queue import Durability
@@ -13,7 +14,8 @@ N = 1_000
 cprint = click.echo
 
 
-func_no_return = lambda: None
+def func_no_return():
+    return None
 
 
 def process_item():
@@ -21,7 +23,6 @@ def process_item():
 
 
 def rdx_msg():
-    func = lambda x: x + 2
     msg = Message(func, 12)
     return msg
 

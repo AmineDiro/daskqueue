@@ -24,6 +24,7 @@ def read_write_benchmark(
     n_consumers: int,
     durability: bool,
     progress: bool,
+    asynchronous: bool,
 ):
 
     if durability:
@@ -37,7 +38,7 @@ def read_write_benchmark(
     consumer_pool = ConsumerPool(client, queue_pool, n_consumers=n_consumers)
 
     s = perf_counter()
-    queue_pool.batch_submit([(func, 3) for _ in range(N)])
+    queue_pool.batch_submit([(func, 3) for _ in range(N)], async_mode=asynchronous)
     # for _ in range(N):
     #     queue_pool.submit(func_no_return)
     e = perf_counter()
@@ -61,7 +62,12 @@ def read_write_benchmark(
 @click.option("-N", "--ntasks", default=10000, help="Number of tasks to send.")
 @click.option("--nqueues", default=1, help="Number of queue actors ")
 @click.option("--nconsumers", default=1, help="Number of consumer actors.")
-def bench(durable, verbose, ntasks, nqueues, nconsumers):
+@click.option(
+    "--sync/--async",
+    default=True,
+    help="Batch submission is asynchronous or synchrounous.",
+)
+def bench(durable, verbose, ntasks, nqueues, nconsumers, sync):
     w_ops = []
     r_ops = []
 
@@ -75,7 +81,7 @@ def bench(durable, verbose, ntasks, nqueues, nconsumers):
 
     with tempfile.TemporaryDirectory() as tmpdirname:
         t_wops, t_rops = read_write_benchmark(
-            client, tmpdirname, ntasks, nqueues, nconsumers, durable, verbose
+            client, tmpdirname, ntasks, nqueues, nconsumers, durable, verbose, not sync
         )
         w_ops.append(t_wops)
         r_ops.append(t_rops)

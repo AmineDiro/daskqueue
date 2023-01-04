@@ -200,7 +200,6 @@ def decorator(cls):
             self,
             list_calls: List[Tuple[Callable, ...]],
             async_mode: bool = False,
-            timeout=None,
             worker_class: ConsumerBaseClass = GeneralConsumer,
             batch_size: int = 1000,
             **kwargs,

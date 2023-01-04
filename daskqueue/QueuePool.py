@@ -199,7 +199,7 @@ def decorator(cls):
         def batch_submit(
             self,
             list_calls: List[Tuple[Callable, ...]],
-            async_mode: bool = False,
+            sync_mode: bool = True,
             worker_class: ConsumerBaseClass = GeneralConsumer,
             batch_size: int = 1000,
             **kwargs,
@@ -222,14 +222,14 @@ def decorator(cls):
             futures = []
 
             with ThreadPoolExecutor(min(os.cpu_count(), self.n_queues)) as e:
+                # TODO : figure out a heuristic for the batch size
                 for msgs in msg_grouper(
                     min(len(list_calls) // self.n_queues + 1, batch_size), list_calls
                 ):
-                    if async_mode:
-                        # Will not wait on the actor response
-                        f = e.submit(self.actor.put_many_sync, msgs)
-                    else:
+                    if sync_mode:
                         f = e.submit(self.put_many_sync, msgs)
+                    else:
+                        f = e.submit(self.actor.put_many_sync, msgs)
                     futures.append(f)
             return [f.result() for f in futures]
 

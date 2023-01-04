@@ -1,5 +1,5 @@
 import tempfile
-from time import perf_counter
+from time import perf_counter, sleep
 
 import click
 import numpy as np
@@ -24,7 +24,7 @@ def read_write_benchmark(
     n_consumers: int,
     durability: bool,
     progress: bool,
-    asynchronous: bool,
+    sync: bool,
 ):
 
     if durability:
@@ -35,15 +35,21 @@ def read_write_benchmark(
 
         queue_pool = QueuePool(client, n_queues)
 
-    consumer_pool = ConsumerPool(client, queue_pool, n_consumers=n_consumers)
+    consumer_pool = ConsumerPool(
+        client, queue_pool, n_consumers=n_consumers, batch_size=100
+    )
 
     s = perf_counter()
-    queue_pool.batch_submit([(func, 3) for _ in range(N)], async_mode=asynchronous)
+
+    queue_pool.batch_submit([(func, 3) for _ in range(N)], sync_mode=sync)
+
     # for _ in range(N):
     #     queue_pool.submit(func_no_return)
     e = perf_counter()
 
-    assert sum(list(queue_pool.get_queue_size().values())) == N
+    while sum(list(queue_pool.get_queue_size().values())) != N:
+        sleep(0.1)
+
     wops = N / (e - s)
 
     s = perf_counter()
@@ -81,7 +87,7 @@ def bench(durable, verbose, ntasks, nqueues, nconsumers, sync):
 
     with tempfile.TemporaryDirectory() as tmpdirname:
         t_wops, t_rops = read_write_benchmark(
-            client, tmpdirname, ntasks, nqueues, nconsumers, durable, verbose, not sync
+            client, tmpdirname, ntasks, nqueues, nconsumers, durable, verbose, sync
         )
         w_ops.append(t_wops)
         r_ops.append(t_rops)

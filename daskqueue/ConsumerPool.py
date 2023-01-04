@@ -21,7 +21,8 @@ class ConsumerPool:
         queue_pool: QueuePool,
         ConsumerClass: TConsumer = GeneralConsumer,
         n_consumers: int = 1,
-        batch_size: int = 1000,
+        batch_size: int = 1,
+        retries: int = 1,
         max_concurrency: int = 10000,
     ) -> None:
         if not issubclass(ConsumerClass, ConsumerBaseClass):
@@ -40,8 +41,9 @@ class ConsumerPool:
                 idx + 1,
                 name,
                 self.queue_pool,
+                self.batch_size,
                 max_concurrency,
-                batch_size,
+                retries,
                 actor=True,
             ).result()
 

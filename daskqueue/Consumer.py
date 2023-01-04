@@ -22,6 +22,7 @@ class ConsumerBaseClass(ABC):
         pool,
         batch_size: int,
         max_concurrency: int,
+        retries: int,
     ) -> None:
         self.id = id
         self.name = name + f"-{os.getpid()}"
@@ -34,6 +35,11 @@ class ConsumerBaseClass(ABC):
         self._logger = logger
         self.max_concurrency = max_concurrency
         self.batch_size = batch_size
+        self.n_retries = retries
+
+        logger.debug(
+            f"Consumer specs : batch : {batch_size}, retry : {self.n_retries}, max_concrrency: {max_concurrency}"
+        )
 
     async def len_items(self) -> int:
         return len(self.items)
@@ -88,9 +94,10 @@ class ConsumerBaseClass(ABC):
                 for item in items:
                     logger.debug(f"[{self.name}]: Received item : {item}")
                     if item is None:
-                        retry += 1
-                        if retry > 3:
+                        if retry > self.n_retries:
                             raise ValueError("Received None.")
+                        retry += 1
+                        continue
 
                     self.items.append(item)
 
@@ -133,12 +140,13 @@ class GeneralConsumer(ConsumerBaseClass):
         name,
         pool,
         batch_size,
-        max_concurrency: int = 10000,
+        max_concurrency: int,
+        retries: int,
         backend: Backend = None,
     ) -> None:
         self.backend = backend
         self._results = defaultdict(lambda: None)
-        super().__init__(id, name, pool, batch_size, max_concurrency)
+        super().__init__(id, name, pool, batch_size, max_concurrency, retries)
 
     def get_results(self) -> Dict[Message, Any]:
         return self._results

@@ -8,19 +8,22 @@ from distributed import Client, LocalCluster
 from conftest import func
 from daskqueue import ConsumerPool, Durability, QueuePool
 
-N = 100_000
 N_TEST = 1
 MAX_BYTES = 100 * int(1e6)  # 100 MB
 
-n_queues = 5
-n_consumers = 5
 
 cprint = click.echo
 gprint = lambda s: click.style(s, fg="green")
 
 
 def read_write_benchmark(
-    client: Client, dirpath: str, N: int, durability: bool, progress: bool
+    client: Client,
+    dirpath: str,
+    N: int,
+    n_queues: int,
+    n_consumers: int,
+    durability: bool,
+    progress: bool,
 ):
 
     if durability:
@@ -52,10 +55,13 @@ def read_write_benchmark(
     return wops, rps
 
 
-@click.command()
+@click.command("cli", context_settings={"show_default": True})
 @click.option("--durable/--transient", default=False)
-@click.option("--progress/--no-progress", default=False)
-def bench(durable, progress):
+@click.option("-v/-q", "--verbose", default=False, help="show queue/consumer progress")
+@click.option("-N", "--ntasks", default=10000, help="Number of tasks to send.")
+@click.option("--nqueues", default=1, help="Number of queue actors ")
+@click.option("--nconsumers", default=1, help="Number of consumer actors.")
+def bench(durable, verbose, ntasks, nqueues, nconsumers):
     w_ops = []
     r_ops = []
 
@@ -68,7 +74,9 @@ def bench(durable, progress):
     client = Client(cluster, direct_to_workers=True)
 
     with tempfile.TemporaryDirectory() as tmpdirname:
-        t_wops, t_rops = read_write_benchmark(client, tmpdirname, N, durable, progress)
+        t_wops, t_rops = read_write_benchmark(
+            client, tmpdirname, ntasks, nqueues, nconsumers, durable, verbose
+        )
         w_ops.append(t_wops)
         r_ops.append(t_rops)
 

@@ -5,20 +5,18 @@ import click
 import numpy as np
 from distributed import Client, LocalCluster
 
+from conftest import func
 from daskqueue import ConsumerPool, Durability, QueuePool
 
 N = 100_000
 N_TEST = 1
 MAX_BYTES = 100 * int(1e6)  # 100 MB
-n_queues = 1
-n_consumers = 10
+
+n_queues = 5
+n_consumers = 5
 
 cprint = click.echo
 gprint = lambda s: click.style(s, fg="green")
-
-func = lambda x: x + 2
-
-func_no_return = lambda: None
 
 
 def read_write_benchmark(
@@ -36,16 +34,17 @@ def read_write_benchmark(
     consumer_pool = ConsumerPool(client, queue_pool, n_consumers=n_consumers)
 
     s = perf_counter()
-    _ = queue_pool.batch_submit([(func_no_return,) for _ in range(N)])
+    queue_pool.batch_submit([(func, 3) for _ in range(N)])
     # for _ in range(N):
     #     queue_pool.submit(func_no_return)
     e = perf_counter()
 
+    assert sum(list(queue_pool.get_queue_size().values())) == N
     wops = N / (e - s)
 
     s = perf_counter()
     consumer_pool.start()
-    consumer_pool.join(timestep=0.1, progress=progress)
+    consumer_pool.join(timestep=0.01, progress=progress)
     consumer_pool.results()
     e = perf_counter()
     rps = N / (e - s)  # op/s

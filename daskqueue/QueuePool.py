@@ -159,11 +159,13 @@ class QueuePoolActor:
             for msgs in msg_grouper(len(list_calls) // self.n_queues + 1, list_calls):
                 f = e.submit(self.put_many_sync, msgs)
                 futures.append(f)
-        [f.result() for f in futures]
+        return [f.result() for f in futures]
 
     def put_many_sync(self, list_items: List[Any]) -> None:
         q = next(self._cycle_queues_put)
-        q.put_many(list_items)
+
+        logger.debug(f"Sending {len(list_items)} item to  queue : {q}")
+        q.put_many(list_items).result()
         self._total_put += len(list_items)
 
     async def put(self, msg: Union[Message, Any], timeout=None) -> None:
@@ -176,6 +178,16 @@ class QueuePoolActor:
         except asyncio.TimeoutError:
             pass
 
+    async def put_many(self, list_items: List[Any], timeout=None) -> None:
+        q = next(self._cycle_queues_put)
+
+        try:
+            q.put_many(list_items)
+            self._total_put += len(list_items)
+        except asyncio.TimeoutError:
+            ## TODO : implement canceling tasks  in Queue and QueuePool
+            raise PutTimeout(f"Couldn't put all element in queue : {q}")
+
     def put_nowait(self, item: Any) -> None:
         q = self._get_random_queue()
         self._queue_size[q.key] += 1
@@ -184,15 +196,6 @@ class QueuePoolActor:
         except asyncio.QueueFull:
             logger.debug("reRaise same error")
             raise asyncio.QueueFull
-
-    async def put_many(self, list_items: List[Any], timeout=None) -> None:
-        q = next(self._cycle_queues_put)
-        try:
-            q.put_many(list_items)
-            self._total_put += len(list_items)
-        except asyncio.TimeoutError:
-            ## TODO : implement canceling tasks  in Queue and QueuePool
-            raise PutTimeout(f"Couldn't put all element in queue : {q}")
 
 
 def decorator(cls):

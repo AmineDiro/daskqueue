@@ -16,7 +16,9 @@ MAX_BYTES = 100 * int(1e6)  # 100 MB
 cprint = click.echo
 gprint = lambda s: click.style(s, fg="green")
 
-func = lambda x: x + 2
+
+def func(x):
+    return x + 2
 
 
 def rdx_msg():

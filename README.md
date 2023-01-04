@@ -115,6 +115,15 @@ You can take a look at the `benchmark/` directory for various benchmarks ran usi
 - The function is 'empty' : just passes and doesn't use CPU or IO
 - Processing 1_000_000 empty tasks took 338s = 5min36s 😸!!
 
+#### Throughput
+- For durable queues, we can achive the following throughput with 1 consumer and 1 queue (running on the same machine)
+  - 1 queue | 1 consumer :
+    - Mean write ops [1tests] 10629.40 wop/s
+    - Mean read ops [1tests] 11612.37 rop/s
+  - 5 queues | 5 consumers, we have a near linear speed up for consumers, reader:
+    - Mean write ops [1tests] 14430.91 wop/s
+    - Mean read ops [1tests] 42791.44 rop/s
+
 ### Limitations
 As for the limitation, given the current implementation, you should be mindfull of the following limitations (this list will be updated regularly):
 - The workers don't implement a min or max tasks fetched and scheduled on the eventloop, they will continuously fetch an item, process it etc...
@@ -129,15 +138,14 @@ TODO
 - [x] Wrap consummers in a Consummers class
 - [x] Implement a Distributed Join to know when to stop cluster
 - [x] Implement a `concurrency_limit` as the maximum number of active, concurrent jobs each worker process will pick up from its queue at once.
-- [x] Implement the various Queue Exceptions
-- [ ] CI/CD : Push to PyPI on release
-- [ ] Implement reliability : tasks retries, acks mechanisms ... ?
-- [ ] Notify dask dahboard ??
-- [ ] Run tasks on custom Worker's executors
-- [ ] Add benchmarks
-- [ ] Tests
+- [x] Run tasks on custom Worker's executors
+- [x] Add benchmarks
+- [x] Tests
+- [x] Implement durable queues
+- [ ] Implement reliability : tasks retries, acks mechanisms
+- [ ] Improve `batch_submit` perfomance
+- [ ] Notify dask dahboard
 - [ ] Support async dask client
-- [ ] Bypass Queue mechanism by using zeroMQ ?
 
 Contributing
 --------------

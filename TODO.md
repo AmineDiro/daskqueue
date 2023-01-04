@@ -54,6 +54,8 @@ Example :
 -
 
 ---
+
 ##  TODO : Durable queue
+- [x] Change the serialization protocol : from cloudpickle to pickle , basically x6~ performance improvement
 - [ ] Improve the  batch submit func
 - [ ] Append to multiple log semgents

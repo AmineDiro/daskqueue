@@ -1,9 +1,10 @@
 import itertools
 from typing import Generator, Iterable
+
 from daskqueue.Protocol import Message
 
 
-def msg_grouper(n, iterable: Iterable, **kwargs) -> Generator:
+def msg_grouper(n: int, iterable: Iterable, **kwargs) -> Generator:
     it = iter(iterable)
     while True:
         chunk = tuple(itertools.islice(it, n))

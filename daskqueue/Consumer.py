@@ -15,7 +15,15 @@ from .Protocol import Message
 
 
 class ConsumerBaseClass(ABC):
-    def __init__(self, id: int, name, pool, max_concurrency: int = 10000) -> None:
+    def __init__(
+        self,
+        id: int,
+        name,
+        pool,
+        max_concurrency: int = 10000,
+        batch: bool = True,
+        batch_size: int = 1000,
+    ) -> None:
         self.id = id
         self.name = name + f"-{os.getpid()}"
         self.pool = pool
@@ -26,8 +34,8 @@ class ConsumerBaseClass(ABC):
         self._running_tasks = []
         self._logger = logger
         self.max_concurrency = max_concurrency
-        self.batch = True
-        self.batch_size = 100
+        self.batch = batch
+        self.batch_size = batch_size
 
     async def len_items(self) -> int:
         return len(self.items)
@@ -72,8 +80,8 @@ class ConsumerBaseClass(ABC):
     async def _consume(self, timeout: float = 0.1) -> None:
         """Runs an async loop to fetch item from a queue determined by the QueuePool and processes it in place"""
         loop = asyncio.get_event_loop()
-        try:
-            while True:
+        while True:
+            try:
                 await self.update_state()
 
                 if not self.batch:
@@ -103,8 +111,8 @@ class ConsumerBaseClass(ABC):
                         done, pending = await asyncio.wait(
                             self._running_tasks, return_when=asyncio.FIRST_COMPLETED
                         )
-        except ValueError:
-            pass
+            except ValueError:
+                break
 
     async def cancel(self) -> None:
         """Cancels the running _consume task"""
@@ -144,6 +152,6 @@ class GeneralConsumer(ConsumerBaseClass):
             self.backend.save(result)
 
     def process_item(self, msg: Message) -> None:
-        logger.debug(f"[{self.name}] Processing item : {msg}")
+        logger.debug(f"[{self.name}] Processing item : {msg.data}")
         result = msg.data()
         self.save(msg, result)

@@ -54,3 +54,24 @@ def test_consumer_pool_submit_noreturn(client):
     consumer_pool.join()
     res = consumer_pool.results()
     assert 10 * [None] == [val for k in res for val in res[k].values()]
+
+
+def test_consumer_pool_ack_late(client):
+    n_queues = 1
+    n_consumers = 1
+    queue_pool = QueuePool(client, n_queues)
+
+    consumer_pool = ConsumerPool(
+        client,
+        queue_pool=queue_pool,
+        n_consumers=n_consumers,
+        batch_size=1,
+        early_ack=False,
+    )
+    for _ in range(10):
+        queue_pool.submit(func_no_return)
+
+    consumer_pool.start()
+    consumer_pool.join(0.1)
+    res = consumer_pool.results()
+    assert 10 * [None] == [val for k in res for val in res[k].values()]

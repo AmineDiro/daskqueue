@@ -1,4 +1,5 @@
 import asyncio
+import functools
 import logging
 import os
 from abc import ABC, abstractmethod
@@ -23,6 +24,7 @@ class ConsumerBaseClass(ABC):
         batch_size: int,
         max_concurrency: int,
         retries: int,
+        early_ack: bool,
     ) -> None:
         self.id = id
         self.name = name + f"-{os.getpid()}"
@@ -36,6 +38,7 @@ class ConsumerBaseClass(ABC):
         self.max_concurrency = max_concurrency
         self.batch_size = batch_size
         self.n_retries = retries
+        self.early_ack = early_ack
 
         logger.debug(
             f"Consumer specs : batch : {batch_size}, retry : {self.n_retries}, max_concrrency: {max_concurrency}"
@@ -81,6 +84,15 @@ class ConsumerBaseClass(ABC):
             logger.debug(f"[{self.name}]: Cleaning done tasks")
             self._running_tasks.remove(task)
 
+    async def _ack_item(self, item: Message, task: asyncio.Future):
+        if self.early_ack:
+            logger.info(f"Ack item {item}")
+            await self._current_q.ack(item.timestamp, item.id)
+        else:
+            task.add_done_callback(
+                functools.partial(self._current_q.ack, item.timestamp, item.id)
+            )
+
     async def _consume(self, timeout: float = 0.1) -> None:
         """Runs an async loop to fetch item from a queue determined by the QueuePool and processes it in place"""
         loop = asyncio.get_event_loop()
@@ -97,6 +109,7 @@ class ConsumerBaseClass(ABC):
                         if retry > self.n_retries:
                             raise ValueError("Received None.")
                         retry += 1
+
                         continue
 
                     self.items.append(item)
@@ -104,6 +117,8 @@ class ConsumerBaseClass(ABC):
                     task = asyncio.ensure_future(
                         loop.run_in_executor(self._executor, self.process_item, item),
                     )
+
+                    await self._ack_item(item, task)
 
                     self._running_tasks.append(task)
                     if len(self._running_tasks) > self.max_concurrency:
@@ -142,11 +157,14 @@ class GeneralConsumer(ConsumerBaseClass):
         batch_size,
         max_concurrency: int,
         retries: int,
+        early_ack: bool,
         backend: Backend = None,
     ) -> None:
         self.backend = backend
         self._results = defaultdict(lambda: None)
-        super().__init__(id, name, pool, batch_size, max_concurrency, retries)
+        super().__init__(
+            id, name, pool, batch_size, max_concurrency, retries, early_ack
+        )
 
     def get_results(self) -> Dict[Message, Any]:
         return self._results

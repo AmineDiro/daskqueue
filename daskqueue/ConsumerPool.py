@@ -23,6 +23,7 @@ class ConsumerPool:
         n_consumers: int = 1,
         batch_size: int = 1,
         retries: int = 1,
+        early_ack: bool = True,
         max_concurrency: int = 10000,
     ) -> None:
         if not issubclass(ConsumerClass, ConsumerBaseClass):
@@ -44,6 +45,7 @@ class ConsumerPool:
                 self.batch_size,
                 max_concurrency,
                 retries,
+                early_ack,
                 actor=True,
             ).result()
 

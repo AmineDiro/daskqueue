@@ -3,7 +3,8 @@ import os
 import struct
 import time
 from collections import OrderedDict
-from typing import Dict, Optional
+from io import FileIO
+from typing import Dict, Optional, Tuple
 from uuid import UUID
 
 from sortedcontainers import SortedDict
@@ -42,18 +43,17 @@ class IndexSegment:
     def __len__(self):
         return len(self.ready) + len(self.delivered)
 
-    def create_or_open(self, path):
+    def create_or_open(self, path) -> Tuple[bool, FileIO]:
         if not os.path.exists(path):
             with open(self.path, "wb") as f:
                 off = self._write_header(f)
                 f.write((self.max_bytes - off) * b"\0")
             return True, open(self.path, "r+b", 0)
-
         f = open(self.path, "r+b", 0)
         self.check_file(f)
         return False, f
 
-    def close(self):
+    def close(self) -> bool:
         self._mm_obj.close()
         self.file.close()
         return self.closed
@@ -102,6 +102,10 @@ class IndexSegment:
         elif idx_record.status == MessageStatus.DELIVERED:
             self.ready.pop(idx_record.msg_id, None)
             self.delivered[idx_record.timestamp] = idx_record
+
+        elif idx_record.status == MessageStatus.ACKED:
+            # Remove item from the list
+            self.delivered.pop(idx_record.timestamp, None)
 
     def set(
         self, msg_id: UUID, status: MessageStatus, offset: RecordOffset

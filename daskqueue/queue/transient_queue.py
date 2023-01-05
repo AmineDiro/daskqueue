@@ -1,9 +1,11 @@
 import asyncio
+import time
 from queue import Empty, Full, Queue
 from typing import List, Optional
 from uuid import UUID
 
 from distributed.worker import get_worker
+from sortedcontainers import SortedDict
 
 from daskqueue.Protocol import Message
 
@@ -17,6 +19,7 @@ class TransientQueue(BaseQueue):
         # Get the IOLoop running on the worker
 
         self.queue = Queue(maxsize=maxsize)
+        self.delivered = SortedDict()
         try:
             self.loop = self._io_loop.asyncio_loop
             asyncio.set_event_loop(self.loop)
@@ -55,7 +58,11 @@ class TransientQueue(BaseQueue):
 
     def get_sync(self, timeout=None):
         try:
-            return self.queue.get(block=False)
+            item = self.queue.get(block=False)
+            tmstmp = time.time()
+            item.timestamp = tmstmp
+            self.delivered[tmstmp] = item
+            return item
         except Empty:
             return None
 
@@ -91,5 +98,8 @@ class TransientQueue(BaseQueue):
             )
         return [self.queue.get_nowait() for _ in range(num_items)]
 
-    async def ack(msg_id: UUID):
-        pass
+    async def ack(self, timestamp: float, msg_id: UUID):
+        item = self.delivered.pop(timestamp, None)
+        if item is None or item.id != msg_id:
+            raise ValueError("Msg doesnt exist in the delivered list")
+        return True

@@ -1,3 +1,5 @@
+import time
+
 import pytest
 from distributed.utils_test import (  # noqa
     cleanup,
@@ -13,6 +15,11 @@ from daskqueue.segment.index_segment import IndexSegment
 from daskqueue.segment.log_segment import LogAccess, LogSegment
 
 MAX_BYTES = 100 * 1024  # 100KB
+
+
+def sleep_func(t):
+    time.sleep(t)
+    return t
 
 
 def func(x):

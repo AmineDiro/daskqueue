@@ -91,11 +91,11 @@ class QueuePoolActor:
             ]
         raise ValueError("Please provide a correct durability type.")
 
-    def get_next_queue(self) -> BaseQueue:
-        return next(self._cycle_queues_get)
-
     async def get_queues(self) -> List[BaseQueue]:
         return self._queues
+
+    def get_next_queue(self) -> BaseQueue:
+        return next(self._cycle_queues_get)
 
     async def get_queue(self, idx: int) -> BaseQueue:
         return self._queues[idx]

@@ -1,5 +1,4 @@
 import asyncio
-import functools
 import logging
 import os
 from abc import ABC, abstractmethod
@@ -57,8 +56,13 @@ class ConsumerBaseClass(ABC):
         return self.items
 
     async def done(self) -> bool:
-        await self.update_state()
+        """Checks if the consumer is done. A done consumers has a closed fetch_loop
+        and no running tasks.
 
+        Returns:
+            done (bool): True if the consumer is done consumming.
+        """
+        await self.update_state()
         try:
             done = (
                 len(self._running_tasks) == 0
@@ -84,58 +88,62 @@ class ConsumerBaseClass(ABC):
             logger.debug(f"[{self.name}]: Cleaning done tasks")
             self._running_tasks.remove(task)
 
-    async def _ack_item(self, item: Message, task: asyncio.Future):
-        if self.early_ack:
-            logger.info(f"Ack item {item}")
-            await self._current_q.ack(item.timestamp, item.id)
-        else:
-            task.add_done_callback(
-                functools.partial(self._current_q.ack, item.timestamp, item.id)
-            )
+    async def _ack_item(self, item: Message):
+        logger.info(f"[Consumer-{self.name}- Ack item {item}")
+        await self._current_q.ack(item.delivered_timestamp, item.id)
+
+    async def _ack_late_item(self, task: asyncio.Future, item: Message):
+        await task
+        await self._current_q.ack(item.delivered_timestamp, item.id)
 
     async def _consume(self, timeout: float = 0.1) -> None:
         """Runs an async loop to fetch item from a queue determined by the QueuePool and processes it in place"""
         loop = asyncio.get_event_loop()
-        retry = 0
+
         while True:
-            try:
-                await self.update_state()
+            await self.update_state()
+            items = await self._current_q.get_many(self.batch_size, timeout=timeout)
 
-                items = await self._current_q.get_many(self.batch_size, timeout=timeout)
+            for item in items:
+                logger.debug(f"[{self.name}]: Received item : {item}")
+                if item is None:
+                    continue
 
-                for item in items:
-                    logger.debug(f"[{self.name}]: Received item : {item}")
-                    if item is None:
-                        if retry > self.n_retries:
-                            raise ValueError("Received None.")
-                        retry += 1
+                self.items.append(item)
 
-                        continue
+                task = asyncio.ensure_future(
+                    loop.run_in_executor(self._executor, self.process_item, item),
+                )
 
-                    self.items.append(item)
+                if self.early_ack:
+                    await self._ack_item(item)
+                else:
+                    ack_task = asyncio.create_task(self._ack_late_item(task, item))
+                    self._running_tasks.append(ack_task)
 
-                    task = asyncio.ensure_future(
-                        loop.run_in_executor(self._executor, self.process_item, item),
+                self._running_tasks.append(task)
+                if len(self._running_tasks) > self.max_concurrency:
+                    done, pending = await asyncio.wait(
+                        self._running_tasks, return_when=asyncio.FIRST_COMPLETED
                     )
 
-                    await self._ack_item(item, task)
-
-                    self._running_tasks.append(task)
-                    if len(self._running_tasks) > self.max_concurrency:
-                        done, pending = await asyncio.wait(
-                            self._running_tasks, return_when=asyncio.FIRST_COMPLETED
-                        )
-            except ValueError:
-                break
-
-    async def cancel(self) -> None:
+    async def cancel(self) -> bool:
         """Cancels the running _consume task"""
-        logger.debug(f"[{self.name}]: Canceling ...")
         logging.info(
             f"[{self.name}]: Cancelling {len(self._running_tasks)} outstanding tasks"
         )
-        [t.cancel() for t in self._running_tasks]
-        self.fetch_loop.cancel()
+        done = True
+        # Waits for all pending tasks to finish before killing
+        await self.update_state()
+        # TODO : Check that everything is shutdown
+        try:
+            self.fetch_loop.cancel()
+            if len(self._running_tasks) > 0:
+                done, _ = await asyncio.wait(
+                    self._running_tasks, return_when=asyncio.ALL_COMPLETED
+                )
+        finally:
+            return True
 
     @abstractmethod
     def process_item(self, item: Any):

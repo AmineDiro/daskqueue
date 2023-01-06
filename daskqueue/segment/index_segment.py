@@ -40,7 +40,8 @@ class IndexSegment:
     def closed(self) -> bool:
         return self._mm_obj.closed
 
-    def __len__(self):
+    def __len__(self) -> int:
+        """Return the length of both pending and delivered and unacked items ."""
         return len(self.ready) + len(self.delivered)
 
     def create_or_open(self, path) -> Tuple[bool, FileIO]:

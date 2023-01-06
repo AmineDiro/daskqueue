@@ -75,3 +75,4 @@ async def test_consummer_get_item(c, s, a, b):
         await consumer.start()
         await consumer.cancel()
         assert await consumer.is_consumming() == False
+        assert await consumer.done() == True

@@ -90,7 +90,7 @@ class ConsumerPool:
         return sum([c.len_items().result() for c in self.consumers.values()])
 
     def join(
-        self, timestep: int = 2, print_timestep: int = 2, progress: bool = False
+        self, timestep: int = 0.1, print_timestep: int = 2, progress: bool = False
     ) -> None:
         """Join ConsumerPool will wait until all consumer are done processing items.
         Basically have processed all the elements of the queue_pool.
@@ -103,9 +103,11 @@ class ConsumerPool:
             f"Waiting for the {self.n_consumers} consumers to process all items in queue_pool..."
         )
         start_join = time.time()
+
         while True:
-            done_consumers = all([c.done().result() for c in self.consumers.values()])
-            if not done_consumers:
+            n_pending = sum(list(self.queue_pool.get_queue_size().result().values()))
+            if n_pending > 0:
+                print("PENDING: ", n_pending)
                 if progress and (time.time() - start_join > print_timestep):
                     logger.debug("Still processing...")
                     logger.info(self.queue_pool.print().result())
@@ -117,7 +119,9 @@ class ConsumerPool:
                     f"All consumers are done ! {self.nb_consumed()} items processed. "
                 )
                 break
-        self.cancel()
+
+        consumer_state = self.cancel()
+        logger.info(f"Consumer state : {consumer_state}")
 
     def results(self) -> None:
         """Start the consumme loop in each consumer"""

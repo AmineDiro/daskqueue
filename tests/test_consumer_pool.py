@@ -72,6 +72,7 @@ def test_consumer_pool_ack_late(client):
         queue_pool.submit(func_no_return)
 
     consumer_pool.start()
-    consumer_pool.join(0.1)
+    consumer_pool.join(0.1, progress=True)
     res = consumer_pool.results()
+
     assert 10 * [None] == [val for k in res for val in res[k].values()]

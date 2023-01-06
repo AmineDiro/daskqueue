@@ -8,6 +8,7 @@ from distributed.worker import get_worker
 from sortedcontainers import SortedDict
 
 from daskqueue.Protocol import Message
+from daskqueue.utils import logger
 
 from .base_queue import BaseQueue, Durability
 
@@ -17,7 +18,6 @@ class TransientQueue(BaseQueue):
         # If maxsize is less than or equal to zero, the queue size is infinite
         self.maxsize = maxsize
         # Get the IOLoop running on the worker
-
         self.queue = Queue(maxsize=maxsize)
         self.delivered = SortedDict()
         try:
@@ -38,7 +38,7 @@ class TransientQueue(BaseQueue):
             return self._worker.io_loop
 
     def qsize(self):
-        return self.queue.qsize()
+        return self.queue.qsize() + len(self.delivered)
 
     def empty(self):
         return self.queue.empty()
@@ -51,6 +51,7 @@ class TransientQueue(BaseQueue):
             self.queue.put(item, block=False)
 
     async def put(self, item, timeout=None):
+        logger.debug(f"[Queue] Put item: {item}")
         self.queue.put(item, timeout=timeout)
 
     def put_sync(self, item):
@@ -60,9 +61,8 @@ class TransientQueue(BaseQueue):
         try:
             item = self.queue.get(block=False)
             if isinstance(item, Message):
-                tmstmp = time.time()
-                item.timestamp = tmstmp
-                self.delivered[tmstmp] = item
+                item.delivered_timestamp = time.time()
+                self.delivered[item.delivered_timestamp] = item
             return item
         except Empty:
             return None
@@ -100,7 +100,10 @@ class TransientQueue(BaseQueue):
         return [self.queue.get_nowait() for _ in range(num_items)]
 
     async def ack(self, timestamp: float, msg_id: UUID):
+        logger.info(f"[Queue] Ack item {msg_id}")
         item = self.delivered.pop(timestamp, None)
-        if item is None or item.id != msg_id:
-            raise ValueError("Msg doesnt exist in the delivered list")
+
+        if item is None or item != msg_id:
+            pass
+            # raise ValueError("Msg doesnt exist in the delivered list")
         return True

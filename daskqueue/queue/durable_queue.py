@@ -10,6 +10,7 @@ from daskqueue.Protocol import Message
 from daskqueue.segment.index_record import IdxRecord
 from daskqueue.segment.index_segment import IndexSegment
 from daskqueue.segment.log_segment import FullSegment, LogAccess, LogSegment
+from daskqueue.utils import logger
 
 from .base_queue import BaseQueue, Durability
 
@@ -130,11 +131,15 @@ class DurableQueue(BaseQueue):
     async def get_many(self, n: int, timeout=None) -> List[Optional[Message]]:
         return [self.get_sync() for _ in range(n)]
 
+    def qsize(self):
+        return len(self.index_segment)
+
     def ack_sync(self, timestamp: float, msg_id: UUID):
+        logger.debug(f"[Queue-{self.name}] Ack item {msg_id}")
         return self.index_segment.ack(timestamp, msg_id)
 
     async def ack(self, timestamp: float, msg_id: UUID):
         return self.ack_sync(timestamp, msg_id)
 
-    def qsize(self):
-        return len(self.index_segment)
+    async def ack_many(self, items: List[Tuple[float, UUID]]):
+        await asyncio.gather(*[self.ack(item[0], item[1]) for item in items])

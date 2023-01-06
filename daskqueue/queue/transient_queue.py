@@ -1,7 +1,7 @@
 import asyncio
 import time
 from queue import Empty, Full, Queue
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from uuid import UUID
 
 from distributed.worker import get_worker
@@ -100,10 +100,13 @@ class TransientQueue(BaseQueue):
         return [self.queue.get_nowait() for _ in range(num_items)]
 
     async def ack(self, timestamp: float, msg_id: UUID):
-        logger.info(f"[Queue] Ack item {msg_id}")
+        logger.debug(f"[Queue] Ack item {msg_id}")
         item = self.delivered.pop(timestamp, None)
 
         if item is None or item != msg_id:
-            pass
             # raise ValueError("Msg doesnt exist in the delivered list")
+            pass
         return True
+
+    async def ack_many(self, items: List[Tuple[float, UUID]]):
+        await asyncio.gather(*[self.ack(item[0], item[1]) for item in items])

@@ -107,7 +107,6 @@ class ConsumerPool:
         while True:
             n_pending = sum(list(self.queue_pool.get_queue_size().result().values()))
             if n_pending > 0:
-                print("PENDING: ", n_pending)
                 if progress and (time.time() - start_join > print_timestep):
                     logger.debug("Still processing...")
                     logger.info(self.queue_pool.print().result())

@@ -88,9 +88,11 @@ class ConsumerBaseClass(ABC):
             logger.debug(f"[{self.name}]: Cleaning done tasks")
             self._running_tasks.remove(task)
 
-    async def _ack_item(self, item: Message):
-        logger.info(f"[Consumer-{self.name}- Ack item {item}")
-        await self._current_q.ack(item.delivered_timestamp, item.id)
+    async def _ack_items(self, items: List[Message]):
+        logger.debug(f"[Consumer-{self.name}- Ackings items {items}")
+        await self._current_q.ack_many(
+            [(item.delivered_timestamp, item.id) for item in items]
+        )
 
     async def _ack_late_item(self, task: asyncio.Future, item: Message):
         await task
@@ -103,29 +105,33 @@ class ConsumerBaseClass(ABC):
         while True:
             await self.update_state()
             items = await self._current_q.get_many(self.batch_size, timeout=timeout)
+            items = [item for item in items if item]
 
-            for item in items:
-                logger.debug(f"[{self.name}]: Received item : {item}")
-                if item is None:
-                    continue
-
-                self.items.append(item)
-
-                task = asyncio.ensure_future(
-                    loop.run_in_executor(self._executor, self.process_item, item),
-                )
-
+            if len(items) > 0:
                 if self.early_ack:
-                    await self._ack_item(item)
-                else:
-                    ack_task = asyncio.create_task(self._ack_late_item(task, item))
-                    self._running_tasks.append(ack_task)
+                    await self._ack_items(items)
 
-                self._running_tasks.append(task)
-                if len(self._running_tasks) > self.max_concurrency:
-                    done, pending = await asyncio.wait(
-                        self._running_tasks, return_when=asyncio.FIRST_COMPLETED
+                for item in items:
+                    logger.debug(f"[{self.name}]: Received item : {item}")
+                    if item is None:
+                        continue
+
+                    self.items.append(item)
+
+                    task = asyncio.ensure_future(
+                        loop.run_in_executor(self._executor, self.process_item, item),
                     )
+
+                    if not self.early_ack:
+                        # NOTE: Ack each message individualy
+                        ack_task = asyncio.create_task(self._ack_late_item(task, item))
+                        self._running_tasks.append(ack_task)
+
+                    self._running_tasks.append(task)
+                    if len(self._running_tasks) > self.max_concurrency:
+                        done, pending = await asyncio.wait(
+                            self._running_tasks, return_when=asyncio.FIRST_COMPLETED
+                        )
 
     async def cancel(self) -> bool:
         """Cancels the running _consume task"""

@@ -14,7 +14,7 @@ from daskqueue.segment import (
     FORMAT_VERSION,
     HEADER_SIZE,
     INDEX_FILE_IDENTIFIER,
-    MAX_BYTES,
+    INDEX_MAX_BYTES,
 )
 
 from .index_record import IdxRecord, IdxRecordProcessor, MessageStatus
@@ -22,7 +22,7 @@ from .log_record import RecordOffset
 
 
 class IndexSegment:
-    def __init__(self, path: str, max_bytes: int = MAX_BYTES):
+    def __init__(self, path: str, max_bytes: int = INDEX_MAX_BYTES):
         self.path = path
         self.max_bytes = max_bytes
         self.name = self.parse_name(path)

@@ -59,9 +59,10 @@ class TransientQueue(BaseQueue):
     def get_sync(self, timeout=None):
         try:
             item = self.queue.get(block=False)
-            tmstmp = time.time()
-            item.timestamp = tmstmp
-            self.delivered[tmstmp] = item
+            if isinstance(item, Message):
+                tmstmp = time.time()
+                item.timestamp = tmstmp
+                self.delivered[tmstmp] = item
             return item
         except Empty:
             return None

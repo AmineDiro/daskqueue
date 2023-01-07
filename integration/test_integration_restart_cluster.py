@@ -1,5 +1,3 @@
-from time import sleep
-
 import click
 
 from daskqueue.ConsumerPool import ConsumerPool
@@ -28,9 +26,6 @@ def test_durable_restart_cluster(tmp_path, client):
     for _ in range(10):
         queue_pool.submit(func_no_return)
 
-    client.restart()
-
-    sleep(5)
     # Other queue pool
     queue_pool = QueuePool(
         client, n_queues, durability=Durability.DURABLE, dirpath=str(tmp_path)

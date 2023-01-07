@@ -57,7 +57,7 @@ def test_logsegment_append(log_segment, msg):
     with pytest.raises(FullSegment) as e_info:
         [log_segment.append(msg) for _ in range(1000)]
 
-    log_segment.close()
+    log_segment.close_file()
 
     with open(log_segment.path, "r+b") as f:
         f.seek(offset.offset)
@@ -69,7 +69,7 @@ def test_logsegment_append(log_segment, msg):
 
 def test_logsegment_close(log_segment, msg):
     offset = log_segment.append(msg)
-    log_segment.close()
+    log_segment.close_file()
     assert log_segment.closed
 
 

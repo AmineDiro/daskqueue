@@ -102,30 +102,34 @@ class IndexSegment:
             self.delivered[idx_record.timestamp] = idx_record
 
         elif idx_record.status == MessageStatus.ACKED:
-            # Remove item from the list
             self.delivered.pop(idx_record.timestamp, None)
 
-    def set(
-        self, msg_id: UUID, status: MessageStatus, offset: RecordOffset
+    def append(
+        self,
+        msg_id: UUID,
+        status: MessageStatus,
+        offset: RecordOffset,
+        delivered_timestamp: float = None,
     ) -> IdxRecord:
         # Write to disk .index file
         tmstmp = time.time()
-        idx_record = IdxRecord(msg_id, status, offset, tmstmp)
+        if status == MessageStatus.ACKED:
+            idx_record = IdxRecord(msg_id, status, offset, delivered_timestamp)
+        else:
+            idx_record = IdxRecord(msg_id, status, offset, tmstmp)
         idx_record_bytes = self.processor.serialize_idx_record(idx_record)
-
         _ = self._mm_obj.write(idx_record_bytes)
-
         # Update internal mem index
         self.update_index(idx_record)
         return idx_record
 
     def push(self, msg_id: UUID, offset: RecordOffset) -> IdxRecord:
-        return self.set(msg_id, MessageStatus.READY, offset)
+        return self.append(msg_id, MessageStatus.READY, offset)
 
     def pop(self) -> Optional[IdxRecord]:
         try:
             idx_record: IdxRecord = self.ready.popitem(last=False)[1]
-            return self.set(
+            return self.append(
                 idx_record.msg_id, MessageStatus.DELIVERED, idx_record.offset
             )
         except KeyError:
@@ -141,7 +145,12 @@ class IndexSegment:
             raise ValueError("Msg doesnt exist in the delivered list")
 
         # Update
-        return self.set(msg_id, MessageStatus.ACKED, idx_record.offset)
+        return self.append(
+            msg_id=msg_id,
+            status=MessageStatus.ACKED,
+            offset=idx_record.offset,
+            delivered_timestamp=timestamp,
+        )
 
     # TODO: Compat
     def _compact(self):

@@ -86,7 +86,7 @@ def test_index_segment_pop(msg, index_segment: IndexSegment, log_segment):
     for _ in range(N):
         msg = Message(func, 1)
         offset = log_segment.append(msg)
-        index_segment.set(msg.id, MessageStatus.READY, offset)
+        index_segment.append(msg.id, MessageStatus.READY, offset)
 
     for _ in range(M):
         rec = index_segment.pop()
@@ -100,7 +100,7 @@ def test_index_segment_ack(msg, index_segment: IndexSegment, log_segment):
     for _ in range(N):
         msg = Message(func, 1)
         offset = log_segment.append(msg)
-        index_segment.set(msg.id, MessageStatus.READY, offset)
+        index_segment.append(msg.id, MessageStatus.READY, offset)
 
     rec = index_segment.pop()
     assert len(index_segment.delivered) == 1

@@ -34,7 +34,7 @@ def index_segment(tmpdir):
 def write_log(N: int, idx: IndexSegment, log: LogSegment):
     msg = rdx_msg()
     offset = log.append(msg)
-    idx.set(msg.id, MessageStatus.READY, offset)
+    idx.append(msg.id, MessageStatus.READY, offset)
     log.read_only()
     idx.close()
 

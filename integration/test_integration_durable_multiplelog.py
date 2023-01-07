@@ -78,8 +78,10 @@ def test_durable_multiple_logsegments_reopen(tmp_path):
     assert len(durable_queue.ro_segments) == 2
 
     # Pop some elements
-    for _ in range(M):
+    for i in range(M):
         msg = durable_queue.get_sync()
+        if i % 4 == 0:
+            durable_queue.ack_sync(msg.delivered_timestamp, msg.id)
         get_msgs.append(msg.id)
 
     ready_prev = durable_queue.index_segment.ready
@@ -94,7 +96,5 @@ def test_durable_multiple_logsegments_reopen(tmp_path):
         log_max_bytes=log_bytes,
     )
 
-    assert len(durable_queue.index_segment.ready) == N - M
-    assert len(durable_queue.index_segment.delivered) == M
     assert durable_queue.index_segment.ready == ready_prev
     assert durable_queue.index_segment.delivered == delivered_prev

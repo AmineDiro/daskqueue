@@ -1,10 +1,14 @@
 import logging
+import os
 import struct
+import tempfile
 
 import pytest
 
+from conftest import func, index_segment
 from daskqueue.Protocol import Message
 from daskqueue.segment.log_record import RecordOffset
+from daskqueue.segment.log_segment import LogSegment
 
 logging.basicConfig(
     level=logging.INFO,
@@ -13,7 +17,7 @@ logging.basicConfig(
 )
 
 from daskqueue.segment import FORMAT_VERSION, HEADER_SIZE, INDEX_FILE_IDENTIFIER
-from daskqueue.segment.index_record import IdxRecord, MessageStatus
+from daskqueue.segment.index_record import IdxRecord, IdxRecordProcessor, MessageStatus
 from daskqueue.segment.index_segment import IndexSegment
 
 
@@ -91,7 +95,6 @@ def test_index_segment_pop(msg, index_segment: IndexSegment, log_segment):
 
 
 def test_index_segment_ack(msg, index_segment: IndexSegment, log_segment):
-    from conftest import func
 
     N = 10
     for _ in range(N):
@@ -109,3 +112,35 @@ def test_index_segment_ack(msg, index_segment: IndexSegment, log_segment):
     assert len(index_segment.ready) == N - 1
     assert delivered_rec.timestamp > rec.timestamp
     assert delivered_rec.status == MessageStatus.ACKED
+
+
+def test_index_processor(log_segment, index_segment, msg):
+    offset = log_segment.append(msg)
+    index_record = index_segment.push(msg.id, offset)
+    processor = IdxRecordProcessor()
+
+    buffer = processor.serialize_idx_record(index_record)
+    index_record_bis = processor.parse_bytes(buffer)
+    assert index_record == index_record_bis
+
+
+def test_load_index(msg: Message, log_segment: LogSegment):
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        name = f"default-queue-0.index"
+        index_path = os.path.join(tmpdirname, name)
+        index_segment = IndexSegment(index_path)
+
+        for _ in range(10):
+            msg = Message(func, 1)
+            offset = log_segment.append(msg)
+            index_segment.push(msg.id, offset)
+
+        index_segment.close()
+        assert index_segment.closed
+
+        ready = index_segment.ready
+        delivered = index_segment.delivered
+
+        index_segment = IndexSegment(index_path)
+        assert ready == index_segment.ready
+        assert delivered == index_segment.delivered

@@ -116,9 +116,7 @@ class LogSegment:
         self.status = LogAccess.RO
         return self.w_cursor
 
-    def close(self) -> int:
-        self._mm_obj.close()
-        self.file.close()
+    def read_only(self) -> int:
         self.status = LogAccess.RO
         return self.w_cursor
 
@@ -128,3 +126,9 @@ class LogSegment:
 
     def parse_offset():
         pass
+
+    def close_file(self):
+        self.read_only()
+        self._mm_obj.flush()
+        self._mm_obj.close()
+        self.file.close()

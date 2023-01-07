@@ -35,13 +35,13 @@ def write_log(N: int, idx: IndexSegment, log: LogSegment):
     msg = rdx_msg()
     offset = log.append(msg)
     idx.set(msg.id, MessageStatus.READY, offset)
-    log.close()
+    log.read_only()
     idx.close()
 
 
 def read_log(N: int, idx: IndexSegment, log: LogSegment):
 
-    log.close()
+    log.read_only()
     idx.close()
 
 

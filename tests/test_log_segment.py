@@ -78,7 +78,7 @@ def test_logseg_reopen(tmpdir, msg):
 
     log_segment = LogSegment(p, LogAccess.RW, 1024)
     offset = log_segment.append(msg)
-    log_segment.close()
+    log_segment.read_only()
 
     assert log_segment.closed
 

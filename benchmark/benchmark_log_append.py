@@ -46,7 +46,7 @@ def write_log(N: int, idx: IndexSegment, log: LogSegment):
     wps = N / (e - s)  # op/s
     w_mbps = size / (e - s) / (1e6)  # mbs
 
-    log.close()
+    log.read_only()
     idx.close()
     return w_mbps, wps
 

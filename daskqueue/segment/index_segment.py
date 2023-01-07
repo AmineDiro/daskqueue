@@ -50,14 +50,10 @@ class IndexSegment:
                 off = self._write_header(f)
                 f.write((self.max_bytes - off) * b"\0")
             return True, open(self.path, "r+b", 0)
+
         f = open(self.path, "r+b", 0)
         self.check_file(f)
         return False, f
-
-    def close(self) -> bool:
-        self._mm_obj.close()
-        self.file.close()
-        return self.closed
 
     def _write_header(self, file):
         version_byte = struct.pack("!HH", *FORMAT_VERSION)
@@ -81,17 +77,18 @@ class IndexSegment:
         cur = HEADER_SIZE
         while cur < self.max_bytes:
             try:
-                idx_record = self.processor.parse_bytes(
-                    self._mm_obj[cur : cur + self.processor.RECORD_SIZE]
-                )
+                buffer = self._mm_obj[cur : cur + self.processor.RECORD_SIZE]
+                if buffer == self.processor.RECORD_SIZE * b"\x00":
+                    raise ValueError("End of file")
+
+                idx_record = self.processor.parse_bytes(buffer)
                 cur += self.processor.RECORD_SIZE
                 self.update_index(idx_record)
+                self._mm_obj.seek(cur)
             except ValueError:
                 break
             except AssertionError:
                 break
-
-        self._mm_obj.seek(HEADER_SIZE)
 
     def update_index(
         self,
@@ -115,6 +112,7 @@ class IndexSegment:
         tmstmp = time.time()
         idx_record = IdxRecord(msg_id, status, offset, tmstmp)
         idx_record_bytes = self.processor.serialize_idx_record(idx_record)
+
         _ = self._mm_obj.write(idx_record_bytes)
 
         # Update internal mem index
@@ -152,3 +150,10 @@ class IndexSegment:
     def parse_name(self, path):
         filename = os.path.basename(path)
         return os.path.splitext(filename)[0]
+
+    def close(self) -> bool:
+        self._mm_obj.flush()
+        self.file.flush()
+        self._mm_obj.close()
+        self.file.close()
+        return self.closed

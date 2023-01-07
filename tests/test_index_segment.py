@@ -72,7 +72,7 @@ def test_index_segment_read(msg, index_segment, log_segment):
     for _ in range(N):
         msg = Message(func, 1)
         offset = log_segment.append(msg)
-        index_segment.set(msg.id, MessageStatus.READY, offset)
+        index_segment.append(msg.id, MessageStatus.READY, offset)
 
     index_segment.close()
     assert len(index_segment) == N
@@ -110,7 +110,7 @@ def test_index_segment_ack(msg, index_segment: IndexSegment, log_segment):
     delivered_rec = index_segment.ack(rec.timestamp, rec.msg_id)
     assert len(index_segment.delivered) == 0
     assert len(index_segment.ready) == N - 1
-    assert delivered_rec.timestamp > rec.timestamp
+    assert delivered_rec.timestamp == rec.timestamp
     assert delivered_rec.status == MessageStatus.ACKED
 
 

@@ -1,5 +1,8 @@
+from time import perf_counter
+
 from distributed.utils_test import cleanup, client, cluster_fixture, gen_cluster, loop
 
+from conftest import sleep_func
 from daskqueue.ConsumerPool import ConsumerPool
 from daskqueue.QueuePool import QueuePool
 
@@ -42,8 +45,11 @@ def test_consumer_pool_submit_pure(client):
 def test_consumer_pool_submit_noreturn(client):
     n_queues = 1
     queue_pool = QueuePool(client, n_queues)
-    n_consumers = 2
-    consumer_pool = ConsumerPool(client, queue_pool=queue_pool, n_consumers=n_consumers)
+    n_consumers = 10
+
+    consumer_pool = ConsumerPool(
+        client, queue_pool=queue_pool, n_consumers=n_consumers, batch_size=1
+    )
     for _ in range(10):
         queue_pool.submit(func_no_return)
 
@@ -51,3 +57,49 @@ def test_consumer_pool_submit_noreturn(client):
     consumer_pool.join()
     res = consumer_pool.results()
     assert 10 * [None] == [val for k in res for val in res[k].values()]
+
+
+def test_consumer_pool_ack_late(client):
+    n_queues = 1
+    n_consumers = 1
+    queue_pool = QueuePool(client, n_queues)
+
+    consumer_pool = ConsumerPool(
+        client,
+        queue_pool=queue_pool,
+        n_consumers=n_consumers,
+        batch_size=1,
+        early_ack=False,
+    )
+    for _ in range(10):
+        queue_pool.submit(func_no_return)
+
+    consumer_pool.start()
+    consumer_pool.join(0.1)
+    res = consumer_pool.results()
+
+    assert 10 * [None] == [val for k in res for val in res[k].values()]
+
+
+def test_consumer_pool_join(client):
+    n_queues = 1
+    n_consumers = 1
+    queue_pool = QueuePool(client, n_queues)
+
+    consumer_pool = ConsumerPool(
+        client,
+        queue_pool=queue_pool,
+        n_consumers=n_consumers,
+        batch_size=1,
+        early_ack=False,
+    )
+    queue_pool.submit(sleep_func, 1)
+
+    s = perf_counter()
+    consumer_pool.start()
+    consumer_pool.join(0.1)
+    e = perf_counter()
+    res = consumer_pool.results()
+
+    assert [1] == [val for k in res for val in res[k].values()]
+    assert e - s >= 1

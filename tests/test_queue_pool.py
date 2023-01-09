@@ -1,15 +1,19 @@
-from multiprocessing import dummy
 import queue
+from multiprocessing import dummy
+
 import pytest
 from distributed import Client
+from distributed.utils_test import cleanup, client, cluster_fixture, gen_cluster, loop
+
 from daskqueue.Consumer import ConsumerBaseClass
 from daskqueue.QueuePool import QueuePool, QueuePoolActor
 
-from distributed.utils_test import client, loop, cleanup, cluster_fixture
-from distributed.utils_test import gen_cluster
 
-
-@gen_cluster(client=True, cluster_dump_directory=False)
+@gen_cluster(
+    client=True,
+    cluster_dump_directory=False,
+    clean_kwargs={"threads": False, "instances": True, "processes": False},
+)
 async def test_putmany_queuepool(c, s, a, b):
     n_queues = 2
     queue_pool = await c.submit(QueuePoolActor, n_queues, actor=True)
@@ -53,11 +57,11 @@ def test_queuepool_inteface_submit(client):
         pass
 
     _ = queue_pool.submit(dummy_func)
-    assert 1 == sum(queue_pool.get_queue_size().values())
+    assert 1 == sum(list(queue_pool.get_queue_size().values()))
 
     for _ in range(9):
         _ = queue_pool.submit(dummy_func)
-    assert 10 == sum(queue_pool.get_queue_size().values())
+    assert 10 == sum(list(queue_pool.get_queue_size().values()))
 
 
 def test_queuepool_inteface_batch_submit(client):
@@ -68,7 +72,7 @@ def test_queuepool_inteface_batch_submit(client):
         pass
 
     _ = queue_pool.batch_submit([(dummy_func,) for _ in range(10)])
-    assert 10 == sum(queue_pool.get_queue_size().values())
+    assert 10 == sum(list(queue_pool.get_queue_size().values()))
 
 
 def test_queuepool_inteface_submit_error(client):

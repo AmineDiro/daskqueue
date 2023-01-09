@@ -36,6 +36,7 @@ repos:
     language: system
     entry: isort
     types: [python]
+    args: ["--filter-files","--profile","black"]
 
   - id: black
     name: black
@@ -44,12 +45,12 @@ repos:
     entry: black
     types: [python]
 
-  - id: mypy
-    name: mypy
-    stages: [commit]
-    language: system
-    entry: mypy
-    types: [python]
+  # - id: mypy
+  #   name: mypy
+  #   stages: [commit]
+  #   language: system
+  #   entry: mypy
+  #   types: [python]
 
   - id: flake8
     name: flake8

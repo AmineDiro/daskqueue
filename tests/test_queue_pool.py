@@ -9,7 +9,11 @@ from daskqueue.Consumer import ConsumerBaseClass
 from daskqueue.QueuePool import QueuePool, QueuePoolActor
 
 
-@gen_cluster(client=True, cluster_dump_directory=False)
+@gen_cluster(
+    client=True,
+    cluster_dump_directory=False,
+    clean_kwargs={"threads": False, "instances": True, "processes": False},
+)
 async def test_putmany_queuepool(c, s, a, b):
     n_queues = 2
     queue_pool = await c.submit(QueuePoolActor, n_queues, actor=True)

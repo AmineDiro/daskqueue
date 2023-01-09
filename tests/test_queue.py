@@ -6,7 +6,11 @@ from daskqueue import QueuePool, TransientQueue
 from daskqueue.queue.transient_queue import Full
 
 
-@gen_cluster(client=True, cluster_dump_directory=False)
+@gen_cluster(
+    client=True,
+    cluster_dump_directory=False,
+    clean_kwargs={"threads": False, "instances": True, "processes": False},
+)
 async def test_create_queue(c, s, a, b):
     queue = await c.submit(TransientQueue, actor=True)
     assert hasattr(queue, "qsize")
@@ -21,14 +25,22 @@ async def test_create_queue(c, s, a, b):
     assert hasattr(queue, "get_nowait_batch")
 
 
-@gen_cluster(client=True, cluster_dump_directory=False)
+@gen_cluster(
+    client=True,
+    cluster_dump_directory=False,
+    clean_kwargs={"threads": False, "instances": True, "processes": False},
+)
 async def test_get_from_empty_queue(c, s, a, b):
     queue = await c.submit(TransientQueue, actor=True)
     res = await queue.get(timeout=1)
     assert res == None
 
 
-@gen_cluster(client=True, cluster_dump_directory=False)
+@gen_cluster(
+    client=True,
+    cluster_dump_directory=False,
+    clean_kwargs={"threads": False, "instances": True, "processes": False},
+)
 async def test_put_in_queue(c, s, a, b):
     queue = await c.submit(TransientQueue, actor=True)
     res = await queue.put(1)
@@ -36,7 +48,11 @@ async def test_put_in_queue(c, s, a, b):
     assert await queue.qsize() == 1
 
 
-@gen_cluster(client=True, cluster_dump_directory=False)
+@gen_cluster(
+    client=True,
+    cluster_dump_directory=False,
+    clean_kwargs={"threads": False, "instances": True, "processes": False},
+)
 async def test_put_get_in_queue(c, s, a, b):
     queue = await c.submit(TransientQueue, actor=True)
     await queue.put(1)
@@ -44,7 +60,11 @@ async def test_put_get_in_queue(c, s, a, b):
     assert res_get == 1
 
 
-@gen_cluster(client=True, cluster_dump_directory=False)
+@gen_cluster(
+    client=True,
+    cluster_dump_directory=False,
+    clean_kwargs={"threads": False, "instances": True, "processes": False},
+)
 async def test_getnowait_in_queue(c, s, a, b):
     queue = await c.submit(TransientQueue, actor=True)
     await queue.put(1)
@@ -52,7 +72,11 @@ async def test_getnowait_in_queue(c, s, a, b):
     assert res_get == 1
 
 
-@gen_cluster(client=True, cluster_dump_directory=False)
+@gen_cluster(
+    client=True,
+    cluster_dump_directory=False,
+    clean_kwargs={"threads": False, "instances": True, "processes": False},
+)
 async def test_put_limit_queue(c, s, a, b):
     queue = await c.submit(TransientQueue, maxsize=1, actor=True)
     _ = await queue.put(1, timeout=1)

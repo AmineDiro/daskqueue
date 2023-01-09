@@ -7,6 +7,7 @@ from distributed import Client
 from distributed.utils_test import gen_cluster
 
 from daskqueue.Consumer import ConsumerBaseClass, DummyConsumer
+from daskqueue.queue.base_queue import Durability
 from daskqueue.QueuePool import QueuePool, QueuePoolActor
 
 logging.basicConfig(
@@ -50,21 +51,36 @@ def test_create_consumer_concrete():
         print(f"{e_info}")
 
 
-@gen_cluster(client=True, cluster_dump_directory=False)
+@gen_cluster(
+    client=True,
+    cluster_dump_directory=False,
+    clean_kwargs={"threads": False, "instances": True, "processes": False},
+)
 async def test_consummer_get_item(c, s, a, b):
     async with Client(s.address, asynchronous=True) as c:
-        queue_pool = await c.submit(QueuePoolActor, 1, actor=True)
+        queue_pool = await c.submit(
+            QueuePoolActor, 1, Durability.TRANSIENT, 1, False, actor=True
+        )
         await queue_pool.put(1)
         consumer = await c.submit(
-            DummyConsumer, 1, "test-consumer", queue_pool, 1, 1000, 1, True, actor=True
+            DummyConsumer, 1, "test-consumer", queue_pool, 1, 1000, 1, False, actor=True
         )
         await consumer.start()
-        res = await consumer.get_items()
-        assert 1 == res[0]
+        assert await consumer.done() == False
+
+        await consumer.cancel()
+        assert await consumer.done() == True
+
+        n_items = await consumer.len_items()
+        assert n_items == 1
 
 
-@gen_cluster(client=True, cluster_dump_directory=False)
-async def test_consummer_get_item(c, s, a, b):
+@gen_cluster(
+    client=True,
+    cluster_dump_directory=False,
+    clean_kwargs={"threads": False, "instances": True, "processes": False},
+)
+async def test_consummer_get_items(c, s, a, b):
     async with Client(s.address, asynchronous=True) as c:
         queue_pool = await c.submit(QueuePoolActor, 1, actor=True)
         await queue_pool.put(1)

@@ -84,8 +84,9 @@ class QueuePoolActor:
             return [
                 self._client.submit(
                     TransientQueue,
-                    self.ack_timeout,
-                    self.retry,
+                    maxsize=-1,
+                    ack_timeout=self.ack_timeout,
+                    retry=self.retry,
                     actor=True,
                 ).result()
                 for _ in range(n_queues)
@@ -97,8 +98,8 @@ class QueuePoolActor:
                     DurableQueue,
                     f"queue-{i}",
                     dirpath,
-                    self.ack_timeout,
-                    self.retry,
+                    ack_timeout=self.ack_timeout,
+                    retry=self.retry,
                     actor=True,
                 ).result()
                 for i in range(n_queues)

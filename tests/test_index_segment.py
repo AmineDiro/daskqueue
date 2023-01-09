@@ -151,10 +151,7 @@ def test_index_segment_gc(msg, tmp_path, log_segment: LogSegment):
     name = str(1).rjust(10, "0") + ".index"
     index_path = tmp_path / name
 
-    index_segment = IndexSegment(
-        index_path,
-        ack_timeout=0.1,
-    )
+    index_segment = IndexSegment(index_path, ack_timeout=0.1, retry=False)
     N = 10
     M = 4
 
@@ -166,9 +163,11 @@ def test_index_segment_gc(msg, tmp_path, log_segment: LogSegment):
     for _ in range(M):
         _ = index_segment.pop()
     assert len(index_segment.delivered) == M
+    assert len(index_segment.ready) == N - M
 
-    time.sleep(0.2)
+    time.sleep(0.5)
     assert len(index_segment.delivered) == 0
+    assert len(index_segment.ready) == N - M
 
 
 def test_index_segment_gc_reschedule(msg, tmp_path, log_segment: LogSegment):
@@ -185,6 +184,23 @@ def test_index_segment_gc_reschedule(msg, tmp_path, log_segment: LogSegment):
 
     for _ in range(N):
         _ = index_segment.pop()
+
     assert len(index_segment.delivered) == N
+    assert len(index_segment.ready) == 0
+
     time.sleep(0.2)
     assert len(index_segment.ready) == N
+    assert len(index_segment.delivered) == 0
+
+
+def test_index_segment_stop_gc(tmp_path):
+    name = str(1).rjust(10, "0") + ".index"
+    index_path = tmp_path / name
+
+    index_segment = IndexSegment(index_path, ack_timeout=0.1, retry=True)
+
+    index_segment.stop_gc.set()
+
+    time.sleep(0.1)
+
+    assert index_segment._gc_thread.is_alive() == False

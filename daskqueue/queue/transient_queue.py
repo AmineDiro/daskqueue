@@ -1,6 +1,7 @@
 import asyncio
 import time
 from queue import Empty, Full, Queue
+from threading import Event, Thread
 from typing import List, Optional, Tuple
 from uuid import UUID
 
@@ -14,12 +15,25 @@ from .base_queue import BaseQueue, Durability
 
 
 class TransientQueue(BaseQueue):
-    def __init__(self, maxsize=-1):
+    def __init__(
+        self,
+        maxsize=-1,
+        ack_timeout: int = 5,
+        retry: bool = True,
+    ):
         # If maxsize is less than or equal to zero, the queue size is infinite
         self.maxsize = maxsize
         # Get the IOLoop running on the worker
         self.queue = Queue(maxsize=maxsize)
         self.delivered = SortedDict()
+
+        # Garbage collection tasks for delivered unacked message
+        self.ack_timeout = ack_timeout
+        self.retry = retry
+        self.stop_gc = Event()
+        self._gc_thread = Thread(target=self._background_gc)
+        self._gc_thread.daemon = True
+        self._gc_thread.start()
         try:
             self.loop = self._io_loop.asyncio_loop
             asyncio.set_event_loop(self.loop)

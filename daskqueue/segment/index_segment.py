@@ -28,7 +28,7 @@ class IndexSegment:
         path: str,
         max_bytes: int = INDEX_MAX_BYTES,
         ack_timeout: int = 5,
-        retry: bool = True,
+        retry: bool = False,
     ):
         self.path = path
         self.max_bytes = max_bytes

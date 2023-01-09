@@ -77,7 +77,7 @@ if __name__ == "__main__":
     consumer_pool.join()
 
     ## Get results
-    result = consumer_pool.results()
+    results = consumer_pool.results()
 
 ```
 
@@ -86,13 +86,13 @@ Take a look at the `examples/` folder to get some usage.
 
 Implementation
 -------
-You should think of daskqueue as a very simple distributed version of aiomultiprocessing. We have three basic classes:
-- `QueueActor`: Wraps a simple AsyncIO Queue object in a Dask Actor, providing an interface for putting and getting item in a **distributed AND asynchronous** fashion. Each queue runs in a separate Dask Worker and can interface with different actors in the cluster.
-- `QueuePoolActor`: Basic Pool actor, it holds a reference to queues and their sizes. It interfaces with the Client and the Consummers. The QueuePool implements a simple scheduling on put and get :
-    - On put : arbitrarly  chooses a random queue and puts item into it  then update the queue size reference
-    - On get_max_queue : returns a queue with the highest item count then updates the queue size reference
+You should think of daskqueue as a very simple distributed version of aiomultiprocessing. We have these basic classes:
+- `Queue` : The daskqueue library provides two queue types :
+  -  `TransientQueue`: The default queue class. The submitted messages are appended to an in memory FIFO queue.
+  -  `DurableQueue`: This is a disk backed queue for persisting the messages. The tasks are served in FIFO manner. Durable queues append serialized message to a fixed-sized file called `LogSegment`. The durable queues also append queue operations to and an `IndexSegment`. The index segment is a combination of a [bitcask](https://riak.com/assets/bitcask-intro.pdf) index for segment offsets and WAL file : it is an append only file where we record message status after each queue operation (ready, delivered, acked and failed) and an offset to the message in on of the `LogSegments`
+- `QueuePoolActor`: Basic Pool actor, it holds a reference to queues and their sizes. It interfaces with the Client and the Consummers. The QueuePool implements a round robin batch submit.
 
-- `ConsumerBaseClass`: Abstract class interfaces implementing all the fetching logic for you worker. You should build your own workers by inheriting from this class then spawning them in your Dask cluster. The Consumers have a `start()` method where we run an async while True loop to get a queue reference from the QueuePool then directly communicate with the Queue providing highly scalable workflows. The Consummer will then get an item form the queue and schedule `process_item` on the dask worker's ThreadPoolExecutor, freeing the worker's eventloop to communicate with the scheduler, fetch tasks asynchronously etc ....
+- `ConsumerBaseClass`: Abstract class interfaces implementing all the fetching logic for you worker. The Consumers have a `start()` method where we run an unfinite fetch loop to pop items from queue assigned by QueuePool. The consumer directly communicate with the Queue, providing highly scalable workflows. The Consummer will then get an item from the queue and schedule `process_item` on the dask worker's ThreadPoolExecutor, freeing the worker's eventloop to communicate with the scheduler, fetch tasks asynchronously etc ....
 
 Performance and Limitations
 -------
@@ -126,12 +126,11 @@ You can take a look at the `benchmark/` directory for various benchmarks ran usi
 
 ### Limitations
 As for the limitation, given the current implementation, you should be mindfull of the following limitations (this list will be updated regularly):
-- The workers don't implement a min or max tasks fetched and scheduled on the eventloop, they will continuously fetch an item, process it etc...
 - We run the tasks in the workers ThreadPool, we inherit all the limitations that the standard dask.submit method have.
-- Task that require multiprocessing/multithreading within a worker cannot be scheduled at the time, although this is something we are currently working on implementing
-- The QueuePool implement simple scheduling on put and get. Alternative schedulers may assign jobs to queues using arbitrary criteria, but no other scheduler implementation is available at this time for QueuePool.
+- Task that require multiprocessing/multithreading within a worker cannot be scheduled at the time. This is also true for dask tasks.
+- The QueuePool implement simple scheduling on put and get. More sophisticated scheduling will be implementing in the future.
 
-TODO
+Features roadmap
 -------
 - [x] Consumer should run arbitrary funcs (ala celery)
 - [x] Use Worker's thread pool for long running tasks ( probe finished to get results)
@@ -141,12 +140,12 @@ TODO
 - [x] Run tasks on custom Worker's executors
 - [x] Add benchmarks
 - [x] Tests
-- [x] Implement durable queues
+- [x] Implement durable queues with bitcask index
+- [ ] Implement Ack Mechanism
+- [ ] Reschedule Unacked Message
 - [ ] Implement health check mechanism
-- [ ] Implement reliability : tasks retries, acks mechanisms
-- [ ] Improve `batch_submit` perfomance
+- [ ] Implement tasks retries
 - [ ] Notify dask dahboard
-- [ ] Support async dask client
 
 Contributing
 --------------

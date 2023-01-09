@@ -7,6 +7,7 @@ from uuid import UUID
 from distributed.worker import get_worker
 
 from daskqueue.Protocol import Message
+from daskqueue.segment import INDEX_MAX_BYTES, MAX_BYTES
 from daskqueue.segment.index_record import IdxRecord
 from daskqueue.segment.index_segment import IndexSegment
 from daskqueue.segment.log_segment import FullSegment, LogAccess, LogSegment
@@ -23,6 +24,8 @@ class DurableQueue(BaseQueue):
         durability: Durability = Durability.DURABLE,
         exchange: str = "default",
         maxsize: Optional[int] = None,
+        log_max_bytes: int = MAX_BYTES,
+        index_max_bytes: int = INDEX_MAX_BYTES,
     ):
         self.name = name
         self.dirpath = dirpath
@@ -31,6 +34,8 @@ class DurableQueue(BaseQueue):
         self.queue_dir = os.path.join(self.dirpath, f"{self.exchange}-{self.name}")
 
         # If maxsize is None, the queue size is infinite
+        self.log_max_bytes = log_max_bytes
+        self.index_max_bytes = index_max_bytes
         self.maxsize = maxsize
 
         # Get the IOLoop running on the worker
@@ -65,36 +70,43 @@ class DurableQueue(BaseQueue):
     def _load_index(self, path: str) -> IndexSegment:
         name = f"{self.exchange}-{self.name}.index"
         index_path = os.path.join(path, name)
-        return IndexSegment(index_path)
+        return IndexSegment(index_path, max_bytes=self.index_max_bytes)
 
     def _load_segments(self, path: str) -> Tuple[List[LogSegment], LogSegment]:
         segments = glob.glob(path + "/*.log")
         if segments:
             segments.sort()
             active_seg_path = segments.pop()
-            list_ro_segment = [LogSegment(sp, LogAccess.RO) for sp in segments]
+            list_ro_segment = [
+                LogSegment(sp, LogAccess.RO, max_bytes=self.log_max_bytes)
+                for sp in segments
+            ]
             return {int(seg.name): seg for seg in list_ro_segment}, LogSegment(
-                active_seg_path, LogAccess.RW
+                active_seg_path, LogAccess.RW, max_bytes=self.log_max_bytes
             )
         else:
             # TODO : Determine this length
             seg_name = str(0).rjust(20, "0") + ".log"
             seg_path = os.path.join(path, seg_name)
-            return {}, LogSegment(seg_path, LogAccess.RW)
+            return {}, LogSegment(seg_path, LogAccess.RW, max_bytes=self.log_max_bytes)
 
     def new_active_segment(self):
-        self.active_segment.close()
+        self.active_segment.read_only()
         # Appending the closed segment to the list of read-only segments
         self.ro_segments[int(self.active_segment.name)] = self.active_segment
         # TODO : Should probably add the archival info in the file footer ?
         file_no = int(self.active_segment.name) + 1
         seg_name = str(file_no).rjust(20, "0") + ".log"
         seg_path = os.path.join(self.queue_dir, seg_name)
-        return LogSegment(seg_path, LogAccess.RW)
+        return LogSegment(seg_path, LogAccess.RW, max_bytes=self.log_max_bytes)
 
     def put_sync(self, item: Message) -> IdxRecord:
         # Append to Active Segment
         # TODO : Can't retry forever, I should add a wrapper to retrie a number of times
+        if len(item.serialize()) > (self.log_max_bytes - 8):
+            raise ValueError(
+                "Cannot append message bigger than the max log semgent size"
+            )
         try:
             offset = self.active_segment.append(item)
         except FullSegment:
@@ -108,13 +120,15 @@ class DurableQueue(BaseQueue):
         index_record = self.index_segment.pop()
         if index_record is None:
             return None
-
         file_no = index_record.offset.file_no
-        # TODO : Could probably keep an ordered set of segments
-        if file_no in self.ro_segments:
-            return self.ro_segments[file_no].read(index_record.offset)
 
-        record = self.active_segment.read(index_record.offset)
+        # TODO : Could probably keep an ordered set of segments (RO + Active)
+        if file_no in self.ro_segments:
+            record = self.ro_segments[file_no].read(index_record.offset)
+        else:
+            record = self.active_segment.read(index_record.offset)
+
+        # Update the msg delivered timestamp to match record
         record.msg.delivered_timestamp = index_record.timestamp
         return record.msg
 
@@ -143,3 +157,8 @@ class DurableQueue(BaseQueue):
 
     async def ack_many(self, items: List[Tuple[float, UUID]]):
         await asyncio.gather(*[self.ack(item[0], item[1]) for item in items])
+
+    def close(self):
+        [log.close_file() for log in self.ro_segments.values()]
+        self.active_segment.close_file()
+        self.index_segment.close()

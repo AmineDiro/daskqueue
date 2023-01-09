@@ -40,13 +40,13 @@ def write_log(N: int, idx: IndexSegment, log: LogSegment):
         msg = rdx_msg()
         offset = log.append(msg)
         size += offset.size
-        idx.set(msg.id, MessageStatus.READY, offset)
+        idx.append(msg.id, MessageStatus.READY, offset)
     e = time.perf_counter()
 
     wps = N / (e - s)  # op/s
     w_mbps = size / (e - s) / (1e6)  # mbs
 
-    log.close()
+    log.read_only()
     idx.close()
     return w_mbps, wps
 

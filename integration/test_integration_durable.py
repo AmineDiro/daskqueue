@@ -52,6 +52,31 @@ def test_durable_queue(durable_queue: DurableQueue):
     assert put_msgs == get_msgs
 
 
+def test_durable_queue_gc(durable_queue: DurableQueue):
+    put_msgs = []
+    get_msgs = []
+    s = perf_counter()
+    for _ in range(N):
+        msg = rdx_msg()
+        durable_queue.put_sync(msg)
+        put_msgs.append(msg.id)
+
+    e = perf_counter()
+
+    w_ops = N / (e - s)  # op/s
+    cprint("\n\t Mean write ops: " + click.style(f"{w_ops:.2f} wop/s", fg="green"))
+
+    s = perf_counter()
+    for _ in range(N):
+        msg = durable_queue.get_sync()
+        get_msgs.append(msg.id)
+    e = perf_counter()
+    r_ops = N / (e - s)  # op/s
+    cprint("\n\t Mean read ops: " + click.style(f"{r_ops:.2f} rop/s", fg="green"))
+
+    assert put_msgs == get_msgs
+
+
 def test_durable_queuepool(client, tmp_path):
     n_queues = 1
     n_consumers = 2
@@ -62,7 +87,8 @@ def test_durable_queuepool(client, tmp_path):
     )
     consumer_pool = ConsumerPool(client, queue_pool, n_consumers=n_consumers)
 
-    _ = queue_pool.batch_submit([(func_no_return,) for _ in range(n_calls)])
+    for _ in range(n_calls):
+        queue_pool.submit(func_no_return)
 
     assert n_calls == sum(list(queue_pool.get_queue_size().values()))
 

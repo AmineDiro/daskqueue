@@ -26,9 +26,12 @@ class DurableQueue(BaseQueue):
         maxsize: Optional[int] = None,
         log_max_bytes: int = MAX_BYTES,
         index_max_bytes: int = INDEX_MAX_BYTES,
+        ack_timeout: int = 5,
+        retry: bool = False,
     ):
         self.name = name
         self.dirpath = dirpath
+
         # NOTE: A queue handles message from one exchange
         self.exchange = exchange
         self.queue_dir = os.path.join(self.dirpath, f"{self.exchange}-{self.name}")
@@ -37,6 +40,8 @@ class DurableQueue(BaseQueue):
         self.log_max_bytes = log_max_bytes
         self.index_max_bytes = index_max_bytes
         self.maxsize = maxsize
+        self.ack_timeout = ack_timeout
+        self.retry = retry
 
         # Get the IOLoop running on the worker
         self.worker_loop = asyncio.new_event_loop()  # self._io_loop
@@ -70,7 +75,12 @@ class DurableQueue(BaseQueue):
     def _load_index(self, path: str) -> IndexSegment:
         name = f"{self.exchange}-{self.name}.index"
         index_path = os.path.join(path, name)
-        return IndexSegment(index_path, max_bytes=self.index_max_bytes)
+        return IndexSegment(
+            index_path,
+            max_bytes=self.index_max_bytes,
+            retry=self.retry,
+            ack_timeout=self.ack_timeout,
+        )
 
     def _load_segments(self, path: str) -> Tuple[List[LogSegment], LogSegment]:
         segments = glob.glob(path + "/*.log")
@@ -162,3 +172,6 @@ class DurableQueue(BaseQueue):
         [log.close_file() for log in self.ro_segments.values()]
         self.active_segment.close_file()
         self.index_segment.close()
+
+    def stop_gc(self):
+        self.index_segment.stop_gc_event.set()

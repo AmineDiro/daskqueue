@@ -35,8 +35,12 @@ class QueuePoolActor:
         self,
         n_queues: int,
         durability: Durability = Durability.TRANSIENT,
+        ack_timeout: int = 5,
+        retry: bool = False,
         **kwargs,
     ):
+        self.ack_timeout = ack_timeout
+        self.retry = retry
         # actors to be used
         self._client = get_client()
         self.n_queues = n_queues
@@ -78,14 +82,24 @@ class QueuePoolActor:
     def create_queues(self, n_queues: int, durability: Durability, **kwargs):
         if durability == Durability.TRANSIENT:
             return [
-                self._client.submit(TransientQueue, actor=True).result()
+                self._client.submit(
+                    TransientQueue,
+                    self.ack_timeout,
+                    self.retry,
+                    actor=True,
+                ).result()
                 for _ in range(n_queues)
             ]
         if durability == Durability.DURABLE:
             dirpath = kwargs["dirpath"] if "dirpath" in kwargs else "/tmp/"
             return [
                 self._client.submit(
-                    DurableQueue, f"queue-{i}", dirpath, actor=True
+                    DurableQueue,
+                    f"queue-{i}",
+                    dirpath,
+                    self.ack_timeout,
+                    self.retry,
+                    actor=True,
                 ).result()
                 for i in range(n_queues)
             ]
@@ -166,6 +180,9 @@ class QueuePoolActor:
         except asyncio.QueueFull:
             logger.debug("reRaise same error")
             raise asyncio.QueueFull
+
+    def stop_gc(self):
+        [q.stop_gc() for q in self._queues]
 
 
 def decorator(cls):

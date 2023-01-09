@@ -199,7 +199,7 @@ def test_index_segment_stop_gc(tmp_path):
 
     index_segment = IndexSegment(index_path, ack_timeout=0.1, retry=True)
 
-    index_segment.stop_gc.set()
+    index_segment.stop_gc_event.set()
 
     time.sleep(0.1)
 

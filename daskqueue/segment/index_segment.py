@@ -41,10 +41,9 @@ class IndexSegment:
         self.retry = retry
 
         # Garbage collection tasks for delivered unacked message
-        self.stop_gc = Event()
+        self.stop_gc_event = Event()
         self.ack_timeout = ack_timeout
-        self._gc_thread = Thread(target=self._background_gc)
-        self._gc_thread.daemon = True
+        self._gc_thread = Thread(target=self._background_gc, daemon=True)
         self._gc_thread.start()
 
         # Setup
@@ -173,13 +172,23 @@ class IndexSegment:
         pass
 
     def _background_gc(self):
-        while not self.stop_gc.is_set():
+        while not self.stop_gc_event.is_set():
             now = time.time()
             cutoff = self.delivered.bisect_left(now)
-            for record in self.delivered.keys()[:cutoff]:
-                idx_record = self.delivered.pop(record)
+            for t in self.delivered.keys()[:cutoff]:
+                idx_record = self.delivered.pop(t)
+                # TODO : Will retry indefinetly
                 if self.retry:
                     self.ready[idx_record.msg_id] = idx_record
+                    self.ready.move_to_end(idx_record.msg_id, last=False)
+                else:
+                    # TODO: For now, we ack the failed garbage collected messages
+                    self.append(
+                        msg_id=idx_record.msg_id,
+                        status=MessageStatus.ACKED,
+                        offset=idx_record.offset,
+                        delivered_timestamp=now,
+                    )
             time.sleep(self.ack_timeout)
 
     def parse_name(self, path):
@@ -187,7 +196,7 @@ class IndexSegment:
         return os.path.splitext(filename)[0]
 
     def close(self) -> bool:
-        self.stop_gc.set()
+        self.stop_gc_event.set()
         self._mm_obj.flush()
         self.file.flush()
         self._mm_obj.close()

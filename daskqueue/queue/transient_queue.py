@@ -19,7 +19,7 @@ class TransientQueue(BaseQueue):
         self,
         maxsize=-1,
         ack_timeout: int = 5,
-        retry: bool = True,
+        retry: bool = False,
     ):
         # If maxsize is less than or equal to zero, the queue size is infinite
         self.maxsize = maxsize
@@ -30,9 +30,8 @@ class TransientQueue(BaseQueue):
         # Garbage collection tasks for delivered unacked message
         self.ack_timeout = ack_timeout
         self.retry = retry
-        self.stop_gc = Event()
-        self._gc_thread = Thread(target=self._background_gc)
-        self._gc_thread.daemon = True
+        self.stop_gc_event = Event()
+        self._gc_thread = Thread(target=self._background_gc, daemon=True)
         self._gc_thread.start()
         try:
             self.loop = self._io_loop.asyncio_loop
@@ -124,3 +123,16 @@ class TransientQueue(BaseQueue):
 
     async def ack_many(self, items: List[Tuple[float, UUID]]):
         await asyncio.gather(*[self.ack(item[0], item[1]) for item in items])
+
+    def _background_gc(self):
+        while not self.stop_gc_event.is_set():
+            now = time.time()
+            cutoff = self.delivered.bisect_left(now)
+            for record in self.delivered.keys()[:cutoff]:
+                idx_record = self.delivered.pop(record)
+                if self.retry:
+                    self.ready[idx_record.msg_id] = idx_record
+            time.sleep(self.ack_timeout)
+
+    def stop_gc(self):
+        self.stop_gc_event.set()

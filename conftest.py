@@ -22,8 +22,10 @@ def sleep_func(t):
     return t
 
 
-def func(x):
-    return x + 2
+# def func(x):
+#     return x + 2
+
+func = lambda x: x + 2
 
 
 @pytest.fixture

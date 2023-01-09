@@ -4,6 +4,8 @@ import uuid
 from functools import partial
 from typing import Callable
 
+import cloudpickle
+
 
 class Message:
     """Message interface."""
@@ -24,4 +26,7 @@ class Message:
         return f"Message {self.id.int}"  #: \n\t\tfunction = {self.func.__name__} \n\t\targs={self._data[0]} \n\t\tkwargs={self._data[1]} "
 
     def serialize(self) -> bytes:
-        return pickle.dumps(self)
+        try:
+            return pickle.dumps(self)
+        except pickle.PicklingError:
+            return cloudpickle.dumps(self)

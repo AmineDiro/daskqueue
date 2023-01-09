@@ -116,13 +116,24 @@ You can take a look at the `benchmark/` directory for various benchmarks ran usi
 - Processing 1_000_000 empty tasks took 338s = 5min36s 😸!!
 
 #### Throughput
-- For durable queues, we can achive the following throughput with 1 consumer and 1 queue (running on the same machine)
+
+- For durable queues, we can achive the following throughput with 1 consumer and 1 queue (running on the same machine) with message size of ~100Bytes
   - 1 queue | 1 consumer :
-    - Mean write ops [1tests] 10629.40 wop/s
-    - Mean read ops [1tests] 11612.37 rop/s
+    - Mean write ops [1tests] 86991.03 wop/s
+    - Mean read ops [1tests] 8439.37 rop/s
   - 5 queues | 5 consumers, we have a near linear speed up for consumers, reader:
-    - Mean write ops [1tests] 14430.91 wop/s
-    - Mean read ops [1tests] 42791.44 rop/s
+    - Mean write ops [1tests] 86008.31 wop/s
+    - Mean read ops [1tests] 25199.66 rop/s
+    
+- For Transient queues, we can achive the following throughput with 1 consumer and 1 queue (running on the same machine) with message size of ~100Bytes
+  - 1 queue | 1 consumer :
+    - Mean write ops [1tests] 86991.03 wop/s
+    - Mean read ops [1tests] 9840.37 rop/s
+  - 5 queues | 5 consumers, we have a near linear speed up for consumers, reader:
+    - Mean write ops [1tests] 86008.31 wop/s
+    - Mean read ops [1tests] 26958.66 rop/s
+    
+| All files are mmaped so we don't see any performance degration for workloads that fit into memory.
 
 ### Limitations
 As for the limitation, given the current implementation, you should be mindfull of the following limitations (this list will be updated regularly):
@@ -141,11 +152,11 @@ Features roadmap
 - [x] Add benchmarks
 - [x] Tests
 - [x] Implement durable queues with bitcask index
-- [ ] Implement Ack Mechanism
-- [ ] Reschedule Unacked Message
+- [x] Implement Ack Mechanism
+- [x] Reschedule Unacked Message
 - [ ] Implement health check mechanism
 - [ ] Implement tasks retries
-- [ ] Notify dask dahboard
+- [ ] Add queue plugin to dask dashboard
 
 Contributing
 --------------

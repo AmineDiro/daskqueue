@@ -2,6 +2,7 @@ import logging
 import os
 import struct
 import tempfile
+import time
 
 import pytest
 
@@ -144,3 +145,46 @@ def test_load_index(msg: Message, log_segment: LogSegment):
         index_segment = IndexSegment(index_path)
         assert ready == index_segment.ready
         assert delivered == index_segment.delivered
+
+
+def test_index_segment_gc(msg, tmp_path, log_segment: LogSegment):
+    name = str(1).rjust(10, "0") + ".index"
+    index_path = tmp_path / name
+
+    index_segment = IndexSegment(
+        index_path,
+        ack_timeout=0.1,
+    )
+    N = 10
+    M = 4
+
+    for _ in range(N):
+        msg = Message(func, 1)
+        offset = log_segment.append(msg)
+        index_segment.append(msg.id, MessageStatus.READY, offset)
+
+    for _ in range(M):
+        _ = index_segment.pop()
+    assert len(index_segment.delivered) == M
+
+    time.sleep(0.2)
+    assert len(index_segment.delivered) == 0
+
+
+def test_index_segment_gc_reschedule(msg, tmp_path, log_segment: LogSegment):
+    name = str(1).rjust(10, "0") + ".index"
+    index_path = tmp_path / name
+
+    index_segment = IndexSegment(index_path, ack_timeout=0.1, retry=True)
+    N = 2
+
+    for _ in range(N):
+        msg = Message(func, 1)
+        offset = log_segment.append(msg)
+        index_segment.append(msg.id, MessageStatus.READY, offset)
+
+    for _ in range(N):
+        _ = index_segment.pop()
+    assert len(index_segment.delivered) == N
+    time.sleep(0.2)
+    assert len(index_segment.ready) == N

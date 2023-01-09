@@ -4,6 +4,7 @@ import struct
 import time
 from collections import OrderedDict
 from io import FileIO
+from threading import Event, Thread
 from typing import Dict, Optional, Tuple
 from uuid import UUID
 
@@ -22,7 +23,13 @@ from .log_record import RecordOffset
 
 
 class IndexSegment:
-    def __init__(self, path: str, max_bytes: int = INDEX_MAX_BYTES):
+    def __init__(
+        self,
+        path: str,
+        max_bytes: int = INDEX_MAX_BYTES,
+        ack_timeout: int = 5,
+        retry: bool = True,
+    ):
         self.path = path
         self.max_bytes = max_bytes
         self.name = self.parse_name(path)
@@ -31,7 +38,16 @@ class IndexSegment:
         self.delivered = SortedDict()
         self.ready = OrderedDict()
         self.processor = IdxRecordProcessor()
+        self.retry = retry
 
+        # Garbage collection tasks for delivered unacked message
+        self.stop_gc = Event()
+        self.ack_timeout = ack_timeout
+        self._gc_thread = Thread(target=self._background_gc)
+        self._gc_thread.daemon = True
+        self._gc_thread.start()
+
+        # Setup
         self.created, self.file = self.create_or_open(path)
         self._mm_obj = self.mmap_index_segment()
         self.load_index()
@@ -156,11 +172,22 @@ class IndexSegment:
     def _compact(self):
         pass
 
+    def _background_gc(self):
+        while not self.stop_gc.is_set():
+            now = time.time()
+            cutoff = self.delivered.bisect_left(now)
+            for record in self.delivered.keys()[:cutoff]:
+                idx_record = self.delivered.pop(record)
+                if self.retry:
+                    self.ready[idx_record.msg_id] = idx_record
+            time.sleep(self.ack_timeout)
+
     def parse_name(self, path):
         filename = os.path.basename(path)
         return os.path.splitext(filename)[0]
 
     def close(self) -> bool:
+        self.stop_gc.set()
         self._mm_obj.flush()
         self.file.flush()
         self._mm_obj.close()

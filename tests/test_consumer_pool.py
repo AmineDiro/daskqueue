@@ -103,3 +103,27 @@ def test_consumer_pool_join(client):
 
     assert [1] == [val for k in res for val in res[k].values()]
     assert e - s >= 1
+
+
+def test_consumer_pool_reset(client):
+    n_queues = 1
+    n_consumers = 1
+    queue_pool = QueuePool(client, n_queues)
+
+    consumer_pool = ConsumerPool(
+        client,
+        queue_pool=queue_pool,
+        n_consumers=n_consumers,
+        batch_size=1,
+        early_ack=False,
+    )
+    queue_pool.submit(sleep_func, 1)
+
+    consumer_pool.start()
+    consumer_pool.join(0.1)
+    res = consumer_pool.results()
+    assert sum([len(r) for c, r in consumer_pool.results().items()]) > 0
+
+    consumer_pool.reset()
+
+    assert sum([len(r) for c, r in consumer_pool.results().items()]) == 0

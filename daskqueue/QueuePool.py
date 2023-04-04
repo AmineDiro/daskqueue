@@ -34,8 +34,8 @@ class QueuePoolActor:
     def __init__(
         self,
         n_queues: int,
-        durability: Durability = Durability.TRANSIENT,
-        ack_timeout: int = 5,
+        durability: str = "transient",
+        ack_timeout: int = 24 * 3600,
         retry: bool = False,
         **kwargs,
     ):
@@ -80,7 +80,8 @@ class QueuePoolActor:
         return len(self._index_queue)
 
     def create_queues(self, n_queues: int, durability: Durability, **kwargs):
-        if durability == Durability.TRANSIENT:
+        if durability == "transient":
+            durability = Durability.TRANSIENT
             return [
                 self._client.submit(
                     TransientQueue,
@@ -91,8 +92,13 @@ class QueuePoolActor:
                 ).result()
                 for _ in range(n_queues)
             ]
-        if durability == Durability.DURABLE:
+        if durability == "durable":
+            durability == Durability.DURABLE
+            # TODO : Create a temporary directory
             dirpath = kwargs["dirpath"] if "dirpath" in kwargs else "/tmp/"
+            logger.info(
+                f"Using dirpath to store queue result: {os.path.abspath(dirpath)}"
+            )
             return [
                 self._client.submit(
                     DurableQueue,
@@ -145,13 +151,15 @@ class QueuePoolActor:
             )
         msg = Message(func, *args, **kwargs)
         await self.put(msg, timeout=timeout)
+        return hash(msg)
 
-    def put_many_sync(self, list_items: List[Any]) -> None:
+    def put_many_sync(self, list_items: List[Message]) -> List[int]:
         q = next(self._cycle_queues_put)
 
         logger.debug(f"Sending {len(list_items)} item to  queue : {q}")
         q.put_many(list_items).result()
         self._total_put += len(list_items)
+        return [hash(item) for item in list_items]
 
     async def put(self, msg: Union[Message, Any], timeout=None) -> None:
         try:

@@ -1,7 +1,6 @@
 import click
 
 from daskqueue.ConsumerPool import ConsumerPool
-from daskqueue.queue.base_queue import Durability
 from daskqueue.QueuePool import QueuePool
 
 cprint = click.echo
@@ -20,7 +19,7 @@ def test_durable_restart_cluster(tmp_path, client):
     n_consumers = 1
 
     queue_pool = QueuePool(
-        client, n_queues, durability=Durability.DURABLE, dirpath=str(tmp_path)
+        client, n_queues, durability="durable", dirpath=str(tmp_path)
     )
 
     for _ in range(10):
@@ -28,7 +27,7 @@ def test_durable_restart_cluster(tmp_path, client):
 
     # Other queue pool
     queue_pool = QueuePool(
-        client, n_queues, durability=Durability.DURABLE, dirpath=str(tmp_path)
+        client, n_queues, durability="durable", dirpath=str(tmp_path)
     )
 
     consumer_pool = ConsumerPool(

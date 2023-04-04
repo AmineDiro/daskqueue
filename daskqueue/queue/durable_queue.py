@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
 from distributed.worker import get_worker
+from tornado.ioloop import IOLoop
 
 from daskqueue.Protocol import Message
 from daskqueue.segment import INDEX_MAX_BYTES, MAX_BYTES
@@ -48,8 +49,8 @@ class DurableQueue(BaseQueue):
         asyncio.set_event_loop(self.worker_loop)
 
         self.ro_segments: Dict[int, LogSegment] = {}
-        self.active_segment: LogSegment = None
-        self.index_segment: IndexSegment = None
+        self.active_segment: Optional[LogSegment] = None
+        self.index_segment: Optional[IndexSegment] = None
 
         # TODO(@Amine) : Parse the storage
         self.setup_storage()
@@ -61,7 +62,7 @@ class DurableQueue(BaseQueue):
         return get_worker()
 
     @property
-    def _io_loop(self) -> asyncio.BaseEventLoop:
+    def _io_loop(self) -> Optional[IOLoop]:
         if self._worker:
             return self._worker.io_loop
 
@@ -82,7 +83,7 @@ class DurableQueue(BaseQueue):
             ack_timeout=self.ack_timeout,
         )
 
-    def _load_segments(self, path: str) -> Tuple[List[LogSegment], LogSegment]:
+    def _load_segments(self, path: str) -> Tuple[Dict[int, LogSegment], LogSegment]:
         segments = glob.glob(path + "/*.log")
         if segments:
             segments.sort()
@@ -112,7 +113,7 @@ class DurableQueue(BaseQueue):
 
     def put_sync(self, item: Message) -> IdxRecord:
         # Append to Active Segment
-        # TODO : Can't retry forever, I should add a wrapper to retrie a number of times
+        # TODO : Can't retry forever, I should add a wrapper to retries a number of times
         if len(item.serialize()) > (self.log_max_bytes - 8):
             raise ValueError(
                 "Cannot append message bigger than the max log semgent size"

@@ -6,7 +6,7 @@ import pytest
 from distributed import Client
 from distributed.utils_test import gen_cluster
 
-from daskqueue.Consumer import ConsumerBaseClass, DummyConsumer
+from daskqueue.Consumer import ConsumerBaseClass, DummyConsumer, GeneralConsumer
 from daskqueue.queue.base_queue import Durability
 from daskqueue.QueuePool import QueuePool, QueuePoolActor
 
@@ -59,7 +59,7 @@ def test_create_consumer_concrete():
 async def test_consummer_get_item(c, s, a, b):
     async with Client(s.address, asynchronous=True) as c:
         queue_pool = await c.submit(
-            QueuePoolActor, 1, Durability.TRANSIENT, 1, False, actor=True
+            QueuePoolActor, 1, "transient", 1, False, actor=True
         )
         await queue_pool.put(1)
         consumer = await c.submit(

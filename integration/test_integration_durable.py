@@ -5,7 +5,6 @@ import click
 from conftest import func
 from daskqueue import ConsumerPool
 from daskqueue.Protocol import Message
-from daskqueue.queue.base_queue import Durability
 from daskqueue.queue.durable_queue import DurableQueue
 from daskqueue.QueuePool import QueuePool
 
@@ -83,7 +82,7 @@ def test_durable_queuepool(client, tmp_path):
     n_calls = 20
 
     queue_pool = QueuePool(
-        client, n_queues, durability=Durability.DURABLE, dirpath=str(tmp_path)
+        client, n_queues, durability="durable", dirpath=str(tmp_path)
     )
     consumer_pool = ConsumerPool(client, queue_pool, n_consumers=n_consumers)
 

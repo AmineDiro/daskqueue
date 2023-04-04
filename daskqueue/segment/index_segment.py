@@ -126,12 +126,14 @@ class IndexSegment:
         offset: RecordOffset,
         delivered_timestamp: float = None,
     ) -> IdxRecord:
+        # TODO: you add delivered_timestamp for undelivered message???
         # Write to disk .index file
         tmstmp = time.time()
         if status == MessageStatus.ACKED:
             idx_record = IdxRecord(msg_id, status, offset, delivered_timestamp)
         else:
             idx_record = IdxRecord(msg_id, status, offset, tmstmp)
+
         idx_record_bytes = self.processor.serialize_idx_record(idx_record)
         _ = self._mm_obj.write(idx_record_bytes)
         # Update internal mem index

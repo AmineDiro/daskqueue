@@ -3,7 +3,7 @@ import logging
 import os
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from distributed import get_worker
 
@@ -38,6 +38,7 @@ class ConsumerBaseClass(ABC):
         self.batch_size = batch_size
         self.n_retries = retries
         self.early_ack = early_ack
+        self._current_q = None
 
         logger.debug(
             f"Consumer specs : batch : {batch_size}, retry : {self.n_retries}, max_concrrency: {max_concurrency}"
@@ -50,7 +51,7 @@ class ConsumerBaseClass(ABC):
         return len(self._running_tasks)
 
     async def get_current_queue(self) -> BaseQueue:
-        return self._current_
+        return self._current_q
 
     async def get_items(self) -> List[Any]:
         return self.items
@@ -151,6 +152,11 @@ class ConsumerBaseClass(ABC):
         finally:
             return True
 
+    def reset_state(self):
+        """Process items from the queue."""
+        self.items = []
+        self._running_tasks = []
+
     @abstractmethod
     def process_item(self, item: Any):
         """Process items from the queue."""
@@ -172,7 +178,7 @@ class GeneralConsumer(ConsumerBaseClass):
         max_concurrency: int,
         retries: int,
         early_ack: bool,
-        backend: Backend = None,
+        backend: Optional[Backend] = None,
     ) -> None:
         self.backend = backend
         self._results = defaultdict(lambda: None)
@@ -183,7 +189,7 @@ class GeneralConsumer(ConsumerBaseClass):
     def get_results(self) -> Dict[Message, Any]:
         return self._results
 
-    def save(self, msg, result: Any) -> None:
+    def save(self, msg: Message, result: Any) -> None:
         logger.debug(f"[{self.name}] Saving result for item : {msg}")
         self._results[hash(msg)] = result
         if self.backend:
@@ -193,3 +199,9 @@ class GeneralConsumer(ConsumerBaseClass):
         logger.debug(f"[{self.name}] Processing item : {msg.data}")
         result = msg.data()
         self.save(msg, result)
+
+    def reset_state(self):
+        """Reset the result store dict"""
+        super().reset_state()
+        self._results = defaultdict(lambda: None)
+        return True

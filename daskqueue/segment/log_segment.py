@@ -44,6 +44,7 @@ class LogSegment:
     def create_or_open(self, path):
         # File Structure :
         # Where each block has the following structure:
+        # TODO : Change to truncate
         if not os.path.exists(path):
             with open(self.path, "wb") as f:
                 off = self._write_header(f)

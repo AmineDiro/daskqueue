@@ -90,7 +90,7 @@ class ConsumerPool:
         return sum([c.len_items().result() for c in self.consumers.values()])
 
     def join(
-        self, timestep: int = 0.1, print_timestep: int = 2, progress: bool = False
+        self, timestep: float = 0.1, print_timestep: int = 2, progress: bool = False
     ) -> None:
         """Join ConsumerPool will wait until all consumer are done processing items.
         Basically have processed all the elements of the queue_pool.
@@ -134,3 +134,8 @@ class ConsumerPool:
         """Cancels the consume loop task in each consumer."""
         logger.info(f"Cancelling {self.n_consumers} consumers.")
         [c.cancel().result() for c in self.consumers.values()]
+
+    def reset(self) -> None:
+        """Cancels the consume loop task in each consumer."""
+        logger.info(f"Resetting the state of {self.n_consumers} consumers.")
+        [c.reset_state().result() for c in self.consumers.values()]

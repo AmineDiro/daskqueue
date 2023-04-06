@@ -2,7 +2,6 @@ import asyncio
 import functools
 import itertools
 import os
-from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Callable, Dict, List, Tuple, TypeVar, Union
 
 import numpy as np
@@ -54,6 +53,7 @@ class QueuePoolActor:
         self._queue_size = {q.key: 0 for q in self._queues}
         self.worker_class = GeneralConsumer
         self._total_put = 0
+        self._executor = self._worker.executor
 
     @property
     def _worker(self):
@@ -190,6 +190,38 @@ class QueuePoolActor:
             logger.debug("reRaise same error")
             raise asyncio.QueueFull
 
+    def batch_submit(
+        self,
+        list_calls: List[Tuple[Callable, ...]],
+        worker_class: ConsumerBaseClass = GeneralConsumer,
+        batch_size: int = 1000,
+        **kwargs,
+    ):
+        """Batch submits a list of messages to the next put queue in pool.
+
+        Args:
+            list_calls (List[Tuple[Callable, ...]]): List of tasks Tuple[func, args] to submit
+            timeout (_type_, optional): Optional timeout. Defaults to None.
+            worker_class (_type_, optional): Submit is only available is using a subclass of GeneralConsumer class. Defaults to GeneralConsumer.
+
+        Raises:
+            RuntimeError: Exception if worker_class is not a subclass of GeneralConsumer
+        """
+        if not issubclass(worker_class, GeneralConsumer):
+            raise RuntimeError(
+                "Can't submit arbitrary tasks to arbitrary consumer. Please use the default GeneralConsumer class"
+            )
+
+        futures = []
+        # TODO : figure out a heuristic for the batch size
+        for msgs in msg_grouper(
+            min(len(list_calls) // self.n_queues + 1, batch_size),
+            list_calls,
+        ):
+            f = self._executor.submit(self.put_many_sync, msgs)
+            futures.append(f)
+        return [f.result() for f in futures]
+
     def stop_gc(self):
         [q.stop_gc() for q in self._queues]
 
@@ -221,43 +253,6 @@ def decorator(cls):
 
         def __len__(self):
             return self.actor.get_len().result()
-
-        def batch_submit(
-            self,
-            list_calls: List[Tuple[Callable, ...]],
-            sync_mode: bool = True,
-            worker_class: ConsumerBaseClass = GeneralConsumer,
-            batch_size: int = 1000,
-            **kwargs,
-        ):
-            """Batch submits a list of messages to the next put queue in pool.
-
-            Args:
-                list_calls (List[Tuple[Callable, ...]]): List of tasks Tuple[func, args] to submit
-                timeout (_type_, optional): Optional timeout. Defaults to None.
-                worker_class (_type_, optional): Submit is only available is using a subclass of GeneralConsumer class. Defaults to GeneralConsumer.
-
-            Raises:
-                RuntimeError: Exception if worker_class is not a subclass of GeneralConsumer
-            """
-            if not issubclass(worker_class, GeneralConsumer):
-                raise RuntimeError(
-                    "Can't submit arbitrary tasks to arbitrary consumer. Please use the default GeneralConsumer class"
-                )
-
-            futures = []
-
-            with ThreadPoolExecutor(min(os.cpu_count(), self.n_queues)) as e:
-                # TODO : figure out a heuristic for the batch size
-                for msgs in msg_grouper(
-                    min(len(list_calls) // self.n_queues + 1, batch_size), list_calls
-                ):
-                    if sync_mode:
-                        f = e.submit(self.put_many_sync, msgs)
-                    else:
-                        f = e.submit(self.actor.put_many_sync, msgs)
-                    futures.append(f)
-            return [f.result() for f in futures]
 
     return Interface
 

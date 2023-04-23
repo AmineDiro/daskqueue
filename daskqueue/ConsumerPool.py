@@ -24,7 +24,7 @@ class ConsumerPool:
         batch_size: int = 1,
         retries: int = 1,
         early_ack: bool = True,
-        max_concurrency: int = 10000,
+        max_concurrency: int = 1,
     ) -> None:
         if not issubclass(ConsumerClass, ConsumerBaseClass):
             raise Exception(
@@ -90,7 +90,10 @@ class ConsumerPool:
         return sum([c.len_items().result() for c in self.consumers.values()])
 
     def join(
-        self, timestep: float = 0.1, print_timestep: int = 2, progress: bool = False
+        self,
+        timestep: float = 0.1,
+        print_timestep: int = 2,
+        progress: bool = False,
     ) -> None:
         """Join ConsumerPool will wait until all consumer are done processing items.
         Basically have processed all the elements of the queue_pool.

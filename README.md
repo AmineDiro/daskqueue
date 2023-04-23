@@ -124,7 +124,7 @@ You can take a look at the `benchmark/` directory for various benchmarks ran usi
   - 5 queues | 5 consumers, we have a near linear speed up for consumers, reader:
     - Mean write ops [1tests] 86008.31 wop/s
     - Mean read ops [1tests] 25199.66 rop/s
-    
+
 - For Transient queues, we can achive the following throughput with 1 consumer and 1 queue (running on the same machine) with message size of ~100Bytes
   - 1 queue | 1 consumer :
     - Mean write ops [1tests] 86991.03 wop/s
@@ -132,7 +132,7 @@ You can take a look at the `benchmark/` directory for various benchmarks ran usi
   - 5 queues | 5 consumers, we have a near linear speed up for consumers, reader:
     - Mean write ops [1tests] 86008.31 wop/s
     - Mean read ops [1tests] 26958.66 rop/s
-    
+
 | All files are mmaped so we don't see any performance degration for workloads that fit into memory.
 
 ### Limitations
@@ -154,6 +154,8 @@ Features roadmap
 - [x] Implement durable queues with bitcask index
 - [x] Implement Ack Mechanism
 - [x] Reschedule Unacked Message
+- [ ] Result backend : Sqlalchemy ? :?
+- [ ] What to do when restarting cluster with a different number of durable queues. (Merge / raise error)
 - [ ] Implement health check mechanism
 - [ ] Implement tasks retries
 - [ ] Add queue plugin to dask dashboard

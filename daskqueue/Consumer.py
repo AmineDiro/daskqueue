@@ -3,6 +3,7 @@ import logging
 import os
 from abc import ABC, abstractmethod
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Optional
 
 from distributed import get_worker
@@ -31,7 +32,8 @@ class ConsumerBaseClass(ABC):
         self.future = None
         self.items = []
         self._worker = get_worker()
-        self._executor = self._worker.executor
+        # self._executor = self._worker.executor
+        self._executor = ThreadPoolExecutor(max_concurrency)
         self._running_tasks = []
         self._logger = logger
         self.max_concurrency = max_concurrency
@@ -40,6 +42,8 @@ class ConsumerBaseClass(ABC):
         self.early_ack = early_ack
         self._current_q = None
 
+        # Barrier to not cancel task
+        self.in_batch = False
         logger.debug(
             f"Consumer specs : batch : {batch_size}, retry : {self.n_retries}, max_concrrency: {max_concurrency}"
         )
@@ -106,44 +110,52 @@ class ConsumerBaseClass(ABC):
         while True:
             await self.update_state()
             items = await self._current_q.get_many(self.batch_size, timeout=timeout)
-            items = [item for item in items if item]
+
+            items = [item for item in items if item is not None]
 
             if len(items) > 0:
                 if self.early_ack:
                     await self._ack_items(items)
 
+                self.in_batch = True
                 for item in items:
                     logger.debug(f"[{self.name}]: Received item : {item}")
-                    if item is None:
-                        continue
-
                     self.items.append(item)
+
+                    # Wait until we have a spot
+                    await self.update_state()
+                    if len(self._running_tasks) > self.max_concurrency:
+                        done, pending = await asyncio.wait(
+                            self._running_tasks,
+                            return_when=asyncio.FIRST_COMPLETED,
+                        )
 
                     task = asyncio.ensure_future(
                         loop.run_in_executor(self._executor, self.process_item, item),
                     )
+
+                    self._running_tasks.append(task)
 
                     if not self.early_ack:
                         # NOTE: Ack each message individualy
                         ack_task = asyncio.create_task(self._ack_late_item(task, item))
                         self._running_tasks.append(ack_task)
 
-                    self._running_tasks.append(task)
-                    if len(self._running_tasks) > self.max_concurrency:
-                        done, pending = await asyncio.wait(
-                            self._running_tasks, return_when=asyncio.FIRST_COMPLETED
-                        )
+                self.in_batch = False
 
     async def cancel(self) -> bool:
         """Cancels the running _consume task"""
         logging.info(
             f"[{self.name}]: Cancelling {len(self._running_tasks)} outstanding tasks"
         )
-        done = True
         # Waits for all pending tasks to finish before killing
         await self.update_state()
+
         # TODO : Check that everything is shutdown
         try:
+            while self.in_batch:
+                await asyncio.sleep(0.1)
+
             self.fetch_loop.cancel()
             if len(self._running_tasks) > 0:
                 done, _ = await asyncio.wait(
